@@ -1,0 +1,15 @@
+# Google BigQuery Factory Contract Analysis Requirements
+
+# Core BigQuery dependencies
+google-cloud-bigquery>=3.11.0
+google-auth>=2.20.0
+
+# Data processing
+pandas>=1.5.0
+numpy>=1.24.0
+
+# Existing dependencies (from original project)
+# Note: Ensure factory_detector.py and its dependencies are available
+
+# Logging and utilities
+python-dotenv>=1.0.0

@@ -1,0 +1,166 @@
+{
+  "description": "Google BigQuery Factory Contract Analysis Configuration",
+  "version": "2.0",
+  "updated": "2024-12-09",
+  
+  "bigquery_config": {
+    "project_id": "",
+    "dataset_id": "tosem_factory_analysis",
+    "location": "US",
+    "service_account_key_file": "",
+    "use_cache": true,
+    "batch_size_months": 1,
+    "max_parallel_queries": 3,
+    "dry_run": false
+  },
+  
+  "blockchain_configs": [
+    {
+      "chain_name": "ethereum",
+      "display_name": "Ethereum Mainnet", 
+      "dataset_name": "bigquery-public-data.crypto_ethereum",
+      "query_type": "direct",
+      "contracts_table": "contracts",
+      "genesis_date": "2015-07-30",
+      "status": "active",
+      "description": "Ethereum mainnet contracts from crypto_ethereum dataset",
+      "query_fields": {
+        "address_field": "address",
+        "bytecode_field": "bytecode", 
+        "timestamp_field": "block_timestamp",
+        "block_number_field": "block_number",
+        "tx_hash_field": "transaction_hash"
+      }
+    },
+    {
+      "chain_name": "polygon",
+      "display_name": "Polygon Mainnet",
+      "dataset_name": "bigquery-public-data.crypto_polygon", 
+      "query_type": "direct",
+      "contracts_table": "contracts",
+      "genesis_date": "2020-05-30",
+      "status": "active", 
+      "description": "Polygon mainnet contracts from crypto_polygon dataset",
+      "query_fields": {
+        "address_field": "address",
+        "bytecode_field": "bytecode",
+        "timestamp_field": "block_timestamp",
+        "block_number_field": "block_number",
+        "tx_hash_field": "transaction_hash"
+      }
+    },
+    {
+      "chain_name": "arbitrum",
+      "display_name": "Arbitrum One",
+      "dataset_name": "bigquery-public-data.goog_blockchain_arbitrum_one_us",
+      "query_type": "join",
+      "transactions_table": "transactions",
+      "receipts_table": "receipts", 
+      "genesis_date": "2021-08-31",
+      "status": "active",
+      "description": "Arbitrum One contracts via transaction/receipt join from Blockchain Analytics",
+      "query_fields": {
+        "address_field": "contract_address",
+        "bytecode_field": "input",
+        "timestamp_field": "block_timestamp", 
+        "block_number_field": "block_number",
+        "tx_hash_field": "hash",
+        "status_field": "status"
+      }
+    },
+    {
+      "chain_name": "optimism",
+      "display_name": "Optimism Mainnet",
+      "dataset_name": "bigquery-public-data.goog_blockchain_optimism_mainnet_us",
+      "query_type": "join", 
+      "transactions_table": "transactions",
+      "receipts_table": "receipts",
+      "genesis_date": "2021-12-16",
+      "status": "active",
+      "description": "Optimism mainnet contracts via transaction/receipt join from Blockchain Analytics",
+      "query_fields": {
+        "address_field": "contract_address",
+        "bytecode_field": "input",
+        "timestamp_field": "block_timestamp",
+        "block_number_field": "block_number", 
+        "tx_hash_field": "hash",
+        "status_field": "status"
+      }
+    },
+    {
+      "chain_name": "avalanche",
+      "display_name": "Avalanche C-Chain",
+      "dataset_name": "bigquery-public-data.goog_blockchain_avalanche_contract_chain_us",
+      "query_type": "join",
+      "transactions_table": "transactions",
+      "receipts_table": "receipts",
+      "genesis_date": "2020-09-23", 
+      "status": "active",
+      "description": "Avalanche C-Chain contracts via transaction/receipt join from Blockchain Analytics",
+      "query_fields": {
+        "address_field": "contract_address",
+        "bytecode_field": "input",
+        "timestamp_field": "block_timestamp",
+        "block_number_field": "block_number",
+        "tx_hash_field": "hash", 
+        "status_field": "status"
+      }
+    }
+  ],
+  
+  "analysis_config": {
+    "cutoff_date": "2025-06-01",
+    "max_workers": 5,
+    "batch_save_size": 1000,
+    "retry_attempts": 3,
+    "retry_delay": 60,
+    "min_bytecode_length": 2,
+    "progress_report_interval": 100
+  },
+  
+  "result_tables": {
+    "factory_analysis_results": {
+      "description": "Main results table with factory analysis outcomes",
+      "fields": [
+        "chain (STRING): Blockchain name",
+        "address (STRING): Contract address",
+        "is_factory (BOOLEAN): Whether contract is a factory", 
+        "is_create (BOOLEAN): Supports CREATE opcode",
+        "is_create2 (BOOLEAN): Supports CREATE2 opcode",
+        "is_both (BOOLEAN): Supports both CREATE and CREATE2",
+        "analysis_success (BOOLEAN): Whether analysis completed successfully",
+        "analysis_time (INTEGER): Analysis time in milliseconds",
+        "processed_at (TIMESTAMP): When analysis was completed"
+      ],
+      "partitioning": "Daily partitioning on processed_at",
+      "clustering": ["chain", "address"]
+    },
+    "analysis_progress": {
+      "description": "Progress tracking table for batch processing",
+      "fields": [
+        "chain (STRING): Blockchain name",
+        "start_date (DATE): Period start date",
+        "end_date (DATE): Period end date", 
+        "status (STRING): completed/in_progress/failed",
+        "contracts_processed (INTEGER): Number of contracts processed",
+        "factories_found (INTEGER): Number of factories found",
+        "processing_time_ms (INTEGER): Processing time in milliseconds",
+        "updated_at (TIMESTAMP): Last update time"
+      ],
+      "clustering": ["chain", "start_date"]
+    }
+  },
+  
+  "bigquery_limits": {
+    "daily_query_bytes": "1TB free per day",
+    "concurrent_queries": "100 max concurrent queries", 
+    "query_timeout": "6 hours max per query",
+    "result_size": "128MB max cached result size",
+    "notes": [
+      "BigQuery public datasets are located in US region",
+      "Cross-region queries may incur additional charges",
+      "Use query cache to reduce costs for repeated queries",
+      "Consider using approximate aggregation functions for large datasets"
+    ]
+  }
+}
