@@ -84,6 +84,7 @@ class BlockchainStatistics:
     def get_join_table_stats(self, chain_config: Dict) -> Tuple[int, int]:
         """
         查询需要JOIN的表统计信息 (arbitrum, optimism, avalanche)
+        修正后的查询：包含所有合约创建类型（直接部署 + 工厂创建）
         返回: (总合约数, unique bytecode数)
         """
         dataset_name = chain_config['dataset_name']
@@ -91,21 +92,20 @@ class BlockchainStatistics:
         receipts_table = chain_config['receipts_table']
         chain_name = chain_config['chain_name']
         
+        # 修正后的查询：更准确地捕获所有合约创建
         query = f"""
         WITH contract_creations AS (
             SELECT DISTINCT
                 receipts.contract_address,
-                transactions.input as bytecode,
-                transactions.block_timestamp
-            FROM `{dataset_name}.{transactions_table}` AS transactions
-            JOIN `{dataset_name}.{receipts_table}` AS receipts
-                ON transactions.transaction_hash = receipts.transaction_hash
+                COALESCE(transactions.input, '0x') as bytecode,
+                receipts.block_timestamp
+            FROM `{dataset_name}.{receipts_table}` AS receipts
+            JOIN `{dataset_name}.{transactions_table}` AS transactions
+                ON receipts.transaction_hash = transactions.transaction_hash
             WHERE receipts.contract_address IS NOT NULL
-                AND transactions.input IS NOT NULL
-                AND transactions.input != '0x'
-                AND LENGTH(transactions.input) > 2
+                AND receipts.contract_address != ''
                 AND receipts.status = 1
-                AND transactions.block_timestamp < '2025-06-01'
+                AND receipts.block_timestamp < '2025-06-01'
         )
         SELECT 
             COUNT(*) as total_contracts,

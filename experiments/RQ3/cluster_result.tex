@@ -1,0 +1,45 @@
+\begin{table}[t]
+  \centering
+  \setlength{\extrarowheight}{1pt}
+  \caption{Clustering Results for  Application Domains}
+  \label{tab:clustering-results}
+  \scriptsize % 改为 \scriptsize
+  \begin{tabular}{|m{0.1\textwidth}|m{0.18\textwidth}|m{0.145\textwidth}|m{0.395\textwidth}|>{\centering\arraybackslash}m{0.05\textwidth}|}
+    \hline
+    \textbf{Category}\centering &  \textbf{Keywords} \centering & \textbf{EIP Protocols}\centering & \textbf{Representative Contract}\centering & \textbf{Number}  \\ 
+    \hline
+    Finance and Investment\centering &
+    ico, dividend, wallet, account, trade, finance, fund, vesting &
+    ERC-20, ERC-1155, ERC-4626, ERC-4980 &
+    \texttt{CryptoFundManager,  DividendDistributor}&
+    3424 \\
+    \hline
+    NFT Related\centering &
+    art, mint, creator, trade, game, nft, digital, collectible & ERC-721, ERC-2981 &
+    \texttt{CryptoArtCollection, NFTMintingPlatform}&
+    1171 \\
+    
+    \hline
+    Decentralized Infrastructure\centering &
+    authority, defi, dapp, controller, node,  indelible, dao, uniswap & ERC-223 &
+    \texttt{DecentralizedExchange, DeFiProtocolManager}&
+    2225\\
+    \hline
+    Proxy Pattern\centering &
+    upgradeable, relay, broker, router, middleman, forward, provider, delegate,  mediator, hypervisor &
+    ERC-1967, ERC-1167 &
+    \texttt{UpgradeableContract, WyvernProxyRegistry} &
+    613 \\
+    
+    \hline
+    Sum (\%) \centering &
+    ---\centering &
+    ---\centering &
+    ---\centering &
+    7433 (56.7\%) \\
+    \hline
+  
+    % Blank and Unclassified\centering & Categories with missing function names or bodies and those that cannot be classified into a specific domain & test123, abc &  & 46.8\% \\
+    % \hline
+  \end{tabular}
+\end{table}

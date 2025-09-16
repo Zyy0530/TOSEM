@@ -57,7 +57,7 @@
       "transactions_table": "transactions",
       "receipts_table": "receipts", 
       "genesis_date": "2021-08-31",
-      "status": "active",
+      "status": "inactive",
       "description": "Arbitrum One contracts via transaction/receipt join from Blockchain Analytics",
       "query_fields": {
         "address_field": "contract_address",
@@ -76,7 +76,7 @@
       "transactions_table": "transactions",
       "receipts_table": "receipts",
       "genesis_date": "2021-12-16",
-      "status": "active",
+      "status": "inactive",
       "description": "Optimism mainnet contracts via transaction/receipt join from Blockchain Analytics",
       "query_fields": {
         "address_field": "contract_address",
@@ -95,7 +95,7 @@
       "transactions_table": "transactions",
       "receipts_table": "receipts",
       "genesis_date": "2020-09-23", 
-      "status": "active",
+      "status": "inactive",
       "description": "Avalanche C-Chain contracts via transaction/receipt join from Blockchain Analytics",
       "query_fields": {
         "address_field": "contract_address",

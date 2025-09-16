@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-09-16 15:51:43",
+  "total_contracts": 2907,
+  "true_positives": 485,
+  "false_positives": 24,
+  "true_negatives": 2335,
+  "false_negatives": 63,
+  "precision": 0.9528487229862476,
+  "recall": 0.885036496350365,
+  "f1_score": 0.9176915799432357,
+  "accuracy": 0.9700722394220846,
+  "avg_execution_time_ms": 21.528723770209837,
+  "total_execution_time_ms": 62584
+}
