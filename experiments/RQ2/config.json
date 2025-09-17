@@ -1,0 +1,65 @@
+{
+  "project_id": "ziyue-wang",
+  "result_dataset": "tosem_factory_analysis",
+  "cutoff_date": "2025-06-01",
+  "batch_size": 1000,
+  "max_workers": 4,
+
+  "chains": {
+    "ethereum": {
+      "chain_name": "ethereum",
+      "display_name": "Ethereum Mainnet",
+      "dataset_name": "bigquery-public-data.crypto_ethereum",
+      "query_type": "direct",
+      "contracts_table": "contracts",
+      "genesis_date": "2015-07-30",
+      "status": "active",
+      "description": "Ethereum mainnet contracts from crypto_ethereum dataset",
+      "query_fields": {
+        "address_field": "address",
+        "bytecode_field": "bytecode",
+        "timestamp_field": "block_timestamp",
+        "block_number_field": "block_number",
+        "tx_hash_field": "transaction_hash"
+      }
+    },
+    "polygon": {
+      "chain_name": "polygon",
+      "display_name": "Polygon Mainnet",
+      "dataset_name": "bigquery-public-data.crypto_polygon",
+      "query_type": "direct",
+      "contracts_table": "contracts",
+      "genesis_date": "2020-05-30",
+      "status": "active",
+      "description": "Polygon mainnet contracts from crypto_polygon dataset",
+      "query_fields": {
+        "address_field": "address",
+        "bytecode_field": "bytecode",
+        "timestamp_field": "block_timestamp",
+        "block_number_field": "block_number",
+        "tx_hash_field": "transaction_hash"
+      }
+    }
+  },
+
+  "result_schema": {
+    "chain": "STRING",
+    "address": "STRING",
+    "is_factory": "BOOLEAN",
+    "is_create2_only": "BOOLEAN",
+    "is_create_only": "BOOLEAN",
+    "is_both": "BOOLEAN",
+    "execution_time_ms": "FLOAT",
+    "bytecode_hash": "STRING",
+    "deployment_date": "DATE",
+    "block_number": "INTEGER",
+    "processed_at": "TIMESTAMP"
+  },
+
+  "logging": {
+    "level": "INFO",
+    "log_dir": "/Users/mac/ResearchSpace/TOSEM/experiments/RQ2/logs",
+    "console_output": true,
+    "file_output": true
+  }
+}

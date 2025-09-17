@@ -1,13 +1,9 @@
 address,actual_create_executions,bytecode_create_bytes,bytecode_create2_bytes,is_vanity_address,vanity_leading_zeros,execution_time_ms,source_type,verification_notes
-0x000000000000006f6502b7f2bbac8c30a3f67e9a,211825,22,31,True,14,21,traces,Factory contract identified from traces: executed 211825 CREATE operations
-0x0000000000007f150bd6f54c40a34d7c3d5e9f56,1647068,32,51,True,12,8,traces,Factory contract identified from traces: executed 1647068 CREATE operations
 0x00000000000311612d792d1162841b3b63dbb64f,4616,3,6,True,11,2,traces,Factory contract identified from traces: executed 4616 CREATE operations
 0x000000000003c42172c0bdd69d6afb6b0bf4b488,1178,5,9,True,11,2,traces,Factory contract identified from traces: executed 1178 CREATE operations
 0x000000000020f8bed3b8834a234e64ae0b06af48,1359,9,6,True,10,4,traces,Factory contract identified from traces: executed 1359 CREATE operations
 0x000000000027d2efc283613d0c3e24a8b430c4d8,3190,0,0,True,10,0,traces,Factory contract identified from traces: executed 3190 CREATE operations
 0x00000000003503bad07dc2c8027052c5880d46cc,640,18,12,True,10,7,traces,Factory contract identified from traces: executed 640 CREATE operations
-0x000000000035b5e5ad9019092c665357240f594e,52512,0,0,True,10,0,traces,Factory contract identified from traces: executed 52512 CREATE operations
-0x00000000003b3cc22af3ae1eac0440bcee416b40,127232,27,39,True,10,28,traces,Factory contract identified from traces: executed 127232 CREATE operations
 0x0000000000771a79d0fc7f3b7fe270eb4498f20b,1633386,4,11,True,10,2,traces,Factory contract identified from traces: executed 1633386 CREATE operations
 0x000000000092c287eb63e8c2c30b4a74787054f8,1050,3,1,True,10,1,traces,Factory contract identified from traces: executed 1050 CREATE operations
 0x0000000000d41c96294ccdac8612bdfe29c641af,31672,16,20,True,10,10,traces,Factory contract identified from traces: executed 31672 CREATE operations
@@ -18,17 +14,6 @@ address,actual_create_executions,bytecode_create_bytes,bytecode_create2_bytes,is
 0x00000000b7ca7e12dcc72290d1fe47b2ef14c607,103346,3,11,False,0,3,traces,Factory contract identified from traces: executed 103346 CREATE operations
 0x0a252663dbcc0b073063d6420a40319e438cfa59,6902508,0,0,False,0,0,traces,Factory contract identified from traces: executed 6902508 CREATE operations
 0x12715a66773bd9c54534a01abf01d05f6b4bd35e,3554,2,9,False,0,2,traces,Factory contract identified from traces: executed 3554 CREATE operations
-0x131a99859a8bfa3251d899f0675607766736ffae,181482,0,0,False,0,0,traces,Factory contract identified from traces: executed 181482 CREATE operations
-0x173552602c32dffdf5c95cd0cca956811244bbe6,1593,2,6,False,0,0,traces,Factory contract identified from traces: executed 1593 CREATE operations
-0x1c647c67c1aad0ebff25500f3b3084d3d2872eba,7090,4,8,False,0,1,traces,Factory contract identified from traces: executed 7090 CREATE operations
-0x2269bceb3f4e0aa53d2fc43b1b7c5c5d13b119a5,684,1,1,False,0,0,traces,Factory contract identified from traces: executed 684 CREATE operations
-0x2f848984984d6c3c036174ce627703edaf780479,1237534,3,11,False,0,2,traces,Factory contract identified from traces: executed 1237534 CREATE operations
-0x336ba015153dc1e3933cb601c920a1114036388f,1762,1,1,False,0,0,traces,Factory contract identified from traces: executed 1762 CREATE operations
-0x3d5409cce1d45233de1d4ebdee74b8e004abdd13,599,3,8,False,0,1,traces,Factory contract identified from traces: executed 599 CREATE operations
-0x3ee18b2214aff97000d974cf647e7c347e8fa585,1136,1,0,False,0,0,traces,Factory contract identified from traces: executed 1136 CREATE operations
-0x42067d00542beb633df2a001d23b0cec0e888746,2617,3,7,False,0,2,traces,Factory contract identified from traces: executed 2617 CREATE operations
-0x42bca2a5593c3b6dc2ebaf62db7e7f6e1d273794,243255,26,19,False,0,9,traces,Factory contract identified from traces: executed 243255 CREATE operations
-0x4904ba3148147d2f78b05a8446c01c48a7aba4bd,1326,5,9,False,0,4,traces,Factory contract identified from traces: executed 1326 CREATE operations
 0x49307d775728daf1d4736ab762de0cefd035e323,30659,7,38,False,0,22,traces,Factory contract identified from traces: executed 30659 CREATE operations
 0x4f4495243837681061c4743b74b3eedf548d56a5,22721,2,1,False,0,1,traces,Factory contract identified from traces: executed 22721 CREATE operations
 0x5346d0f80e2816fad329f2c140c870ffc3c3e2ef,905,2,1,False,0,1,traces,Factory contract identified from traces: executed 905 CREATE operations
@@ -55,8 +40,6 @@ address,actual_create_executions,bytecode_create_bytes,bytecode_create2_bytes,is
 0xd8331cb1fcfaa5569fcb5dc92c784b2242ea2e6c,1450,0,0,False,0,0,traces,Factory contract identified from traces: executed 1450 CREATE operations
 0xd8ae986159e350b6535539b8a1e488658452f25e,1802,0,0,False,0,0,traces,Factory contract identified from traces: executed 1802 CREATE operations
 0xdafce4acc2703a24f29d1321adaadf5768f54642,7830,5,5,False,0,2,traces,Factory contract identified from traces: executed 7830 CREATE operations
-0xdbe0d523e0bd9fd95cdc1b931b6195f15d4d7017,22925,1,0,False,0,0,traces,Factory contract identified from traces: executed 22925 CREATE operations
-0xe08fcc4283fd8e35fdc49088b502b679e1c779fd,1007,1,0,False,0,0,traces,Factory contract identified from traces: executed 1007 CREATE operations
 0xe210330d6768030e816d223836335079c7a0c851,1645,0,6,False,0,0,traces,Factory contract identified from traces: executed 1645 CREATE operations
 0xe5965ab5962edc7477c8520243a95517cd252fa9,8534,4,5,False,0,1,traces,Factory contract identified from traces: executed 8534 CREATE operations
 0xea7a7bc3ba38b2569b6bee8dcd8acb4218c08716,117464,0,6,False,0,1,traces,Factory contract identified from traces: executed 117464 CREATE operations

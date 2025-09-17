@@ -1,25 +1,5 @@
 address,contract_name,factory_type,create_positions,create2_positions,execution_time_ms,source_type,verification_notes
-0x16ebbbb0fd0b99967af4a589314a4f1836c0eebc,MytokenFactory,CREATE_ONLY,1,0,68,etherscan,Verified non-factory: no create/create2/new keywords. Contract: MytokenFactory
-0x182b7edb95135c9275bbb794b6020a63ec493979,BatchMintFactory,CREATE_ONLY,1,0,1,etherscan,Verified non-factory: no create/create2/new keywords. Contract: BatchMintFactory
-0x1ec760fbd180a7e4918f34152ace0f3b0beca200,Messenger,CREATE_ONLY,1,0,97,etherscan,Verified non-factory: no create/create2/new keywords. Contract: Messenger
 0x43795e914beb0d1a4b273b6b8d921dad44ec8f81,Juniper,CREATE2_ONLY,0,1,15,etherscan,Verified non-factory: no create/create2/new keywords. Contract: Juniper
-0x4e0ae6a15d930fc89a8356b1e0fc355329313dec,AIFLAME1,CREATE_ONLY,1,0,11,etherscan,Verified non-factory: no create/create2/new keywords. Contract: AIFLAME1
-0x5b39a481bf3833518014d140b913a03aa956c2c6,BatchMintTenYearsNFT,CREATE_ONLY,1,0,1,etherscan,Verified non-factory: no create/create2/new keywords. Contract: BatchMintTenYearsNFT
 0x5f1ef77b3f4c11fd50a0402f5eac86fb920b5d5a,AATPresale,CREATE2_ONLY,0,1,53,etherscan,Verified non-factory: no create/create2/new keywords. Contract: AATPresale
-0x675ab00c4e3ff1ee763137604ca8f36c6838dbe9,DomainRoutingIsmFactory,CREATE_ONLY,1,0,0,etherscan,Verified non-factory: no create/create2/new keywords. Contract: DomainRoutingIsmFactory
-0x6d86e31a055a97507b02bd45c7715e1c35a2b25a,Multimint,CREATE_ONLY,1,0,0,etherscan,Verified non-factory: no create/create2/new keywords. Contract: Multimint
-0x6e3def56ecc9e0696fe88c8cad5975581bc005bf,MavrkTokenFactory,CREATE_ONLY,1,0,8,etherscan,Verified non-factory: no create/create2/new keywords. Contract: MavrkTokenFactory
-0x6f2ec97fe37884b4249324a93b7c0d57bdef6396,PumpFactory,CREATE_ONLY,1,0,137,etherscan,Verified non-factory: no create/create2/new keywords. Contract: PumpFactory
 0x73a217ec3113f1edad121a00b0ffcc7c383c4854,GoldfinchConfig,CREATE_ONLY,1,0,5,etherscan,Verified non-factory: no create/create2/new keywords. Contract: GoldfinchConfig
-0x7b9ac8f4f69e8c5ad8354d380fa9aa00a6ee9c83,PUNK,CREATE2_ONLY,0,1,8,etherscan,Verified non-factory: no create/create2/new keywords. Contract: PUNK
-0x804fa4f383f508600074719d19263645fa450b68,Statix,BOTH_CREATE_CREATE2,1,2,183,etherscan,Verified non-factory: no create/create2/new keywords. Contract: Statix
 0x9930758707c7fc7e80c8a177f60b866f2543c0d3,BeamWalletToken,CREATE_ONLY,1,0,125,etherscan,Verified non-factory: no create/create2/new keywords. Contract: BeamWalletToken
-0x9ee23c81fc1420e88af6a333044fac3f2e98297f,DeployContract,CREATE_ONLY,1,0,71,etherscan,Verified non-factory: no create/create2/new keywords. Contract: DeployContract
-0xb307b9365587f7cf0704c329b5899efa102ed5f3,McGooTokenFactory,CREATE_ONLY,1,0,120,etherscan,Verified non-factory: no create/create2/new keywords. Contract: McGooTokenFactory
-0xbf8da775beee6283d68b38274389de6bb979750b,DeployContract,CREATE_ONLY,1,0,103,etherscan,Verified non-factory: no create/create2/new keywords. Contract: DeployContract
-0xc7457cd7b78b2f8609a964a3a41d69dc7606a1ec,DomainRoutingIsmFactory,CREATE_ONLY,1,0,0,etherscan,Verified non-factory: no create/create2/new keywords. Contract: DomainRoutingIsmFactory
-0xdaff2b9e218f88d2a9a3083b8a93aa7b7232b4c9,CharlieERC,CREATE_ONLY,1,0,60,etherscan,Verified non-factory: no create/create2/new keywords. Contract: CharlieERC
-0xdebe9763575cccfab6a915b25c9e59928be32806,SMH12,CREATE2_ONLY,0,1,5,etherscan,Verified non-factory: no create/create2/new keywords. Contract: SMH12
-0xe6974699eea9e75f573b166e1d21e43a9c54ffe6,Messenger,CREATE_ONLY,1,0,99,etherscan,Verified non-factory: no create/create2/new keywords. Contract: Messenger
-0xe911814dabb9e80cbff2f5f2c2e920c5a766d77c,IWNG,CREATE_ONLY,1,0,12,etherscan,Verified non-factory: no create/create2/new keywords. Contract: IWNG
-0xffb27d018b86cb835b2d4b23b314bda4d0f5659c,PFTDeployer,CREATE_ONLY,1,0,131,etherscan,Verified non-factory: no create/create2/new keywords. Contract: PFTDeployer
