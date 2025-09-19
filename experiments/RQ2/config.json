@@ -4,6 +4,7 @@
   "cutoff_date": "2025-06-01",
   "batch_size": 1000,
   "max_workers": 4,
+  "per_contract_timeout_sec": 10,
 
   "chains": {
     "ethereum": {

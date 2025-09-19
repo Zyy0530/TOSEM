@@ -22,6 +22,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass, asdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import multiprocessing
+from multiprocessing import Process, Queue
 import threading
 
 # Add parent directory to path for factory_detector import
@@ -42,6 +44,33 @@ except ImportError as e:
     print(f"Cannot import factory_detector: {e}")
     print("Please ensure factory_detector.py is in the parent directory")
     sys.exit(1)
+
+def _detect_worker(bytecode: str, result_queue: Queue) -> None:
+    """Subprocess worker: run detection and send back flags + exec time.
+
+    Using a subprocess allows enforcing a hard timeout by terminating the process
+    if it exceeds the allowed time budget.
+    """
+    try:
+        # Import inside the subprocess to avoid pickling detector state
+        from factory_detector import ImprovedFactoryDetector
+        detector = ImprovedFactoryDetector()
+        res = detector.detect_factory_contract(bytecode)
+
+        has_create = len(res.verified_create_positions) > 0
+        has_create2 = len(res.verified_create2_positions) > 0
+        flags = {
+            'is_factory': res.is_factory_contract,
+            'is_create_only': res.is_factory_contract and has_create and not has_create2,
+            'is_create2_only': res.is_factory_contract and has_create2 and not has_create,
+            'is_both': res.is_factory_contract and has_create and has_create2,
+        }
+        result_queue.put(("ok", flags, float(res.analysis_time_ms)))
+    except Exception as e:  # Return error to parent
+        try:
+            result_queue.put(("error", str(e)))
+        except Exception:
+            pass
 
 @dataclass
 class ChainConfig:
@@ -120,9 +149,12 @@ class RQ2FactoryDetectionExperiment:
         self.result_dataset = config['result_dataset']
         self.result_table = "rq2_factory_detection_results"
         self.progress_table = "rq2_experiment_progress"
+        self.dedup_table_prefix = "rq2_unique_bytecodes_"
         self.cutoff_date = config['cutoff_date']
         self.batch_size = config['batch_size']
         self.max_workers = config['max_workers']
+        # Per-contract analysis timeout (seconds); default 10s if not in config
+        self.per_contract_timeout_sec = int(config.get('per_contract_timeout_sec', 10))
         
         # Initialize BigQuery client
         self.client = bigquery.Client(project=self.project_id)
@@ -176,6 +208,77 @@ class RQ2FactoryDetectionExperiment:
         self.logger.addHandler(console_handler)
         
         self.logger.info(f"RQ2 Factory Detection Experiment started - Log file: {log_file}")
+
+    def get_dedup_table_name(self, chain_name: str) -> str:
+        return f"{self.dedup_table_prefix}{chain_name}"
+
+    def ensure_dedup_table(self, chain_name: str):
+        """Ensure a per-chain deduplicated unique-bytecode table exists.
+
+        Strategy: build by shards using FARM_FINGERPRINT(bytecode) % N to limit per-job memory.
+        """
+        table_name = self.get_dedup_table_name(chain_name)
+        table_ref = self.client.dataset(self.result_dataset).table(table_name)
+        chain_config = self.chains[chain_name]
+
+        try:
+            table = self.client.get_table(table_ref)
+            self.logger.info(f"Dedup table {table_name} already exists; using it")
+            return
+        except NotFound:
+            self.logger.info(f"Creating dedup table {table_name} (this may take a while)...")
+
+        # Create empty table with schema
+        schema = [
+            bigquery.SchemaField("bytecode", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("address", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("deployment_timestamp", "TIMESTAMP", mode="REQUIRED"),
+            bigquery.SchemaField("block_number", "INTEGER", mode="REQUIRED"),
+        ]
+        table = bigquery.Table(table_ref, schema=schema)
+        self.client.create_table(table)
+
+        # Build content by shards to reduce memory footprint
+        shards = 64
+        for shard in range(shards):
+            self.logger.info(f"{chain_name}: Building dedup shard {shard+1}/{shards}")
+            query = f"""
+            INSERT INTO `{self.project_id}.{self.result_dataset}.{table_name}` (bytecode, address, deployment_timestamp, block_number)
+            WITH filtered AS (
+              SELECT 
+                {chain_config.bytecode_field} AS bytecode,
+                {chain_config.address_field} AS address,
+                {chain_config.timestamp_field} AS deployment_timestamp,
+                {chain_config.block_number_field} AS block_number
+              FROM `{chain_config.dataset_name}.{chain_config.contracts_table}`
+              WHERE {chain_config.timestamp_field} < TIMESTAMP(@cutoff_date)
+                AND {chain_config.bytecode_field} IS NOT NULL
+                AND LENGTH({chain_config.bytecode_field}) > 2
+                AND MOD(ABS(FARM_FINGERPRINT({chain_config.bytecode_field})), {shards}) = @shard
+            ), ranked AS (
+              SELECT *,
+                ROW_NUMBER() OVER (
+                  PARTITION BY bytecode
+                  ORDER BY block_number, deployment_timestamp, address
+                ) AS rn
+              FROM filtered
+            )
+            SELECT bytecode, address, deployment_timestamp, block_number
+            FROM ranked
+            WHERE rn = 1
+            """
+
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("cutoff_date", "DATE", self.cutoff_date),
+                    bigquery.ScalarQueryParameter("shard", "INT64", shard),
+                ]
+            )
+
+            job = self.client.query(query, job_config=job_config)
+            job.result()
+        
+        self.logger.info(f"Dedup table {table_name} built successfully")
     
     def setup_result_tables(self):
         """Create BigQuery tables for storing results and progress"""
@@ -268,103 +371,235 @@ class RQ2FactoryDetectionExperiment:
             return result.iloc[0].to_dict()
     
     def get_total_contracts_count(self, chain_name: str) -> int:
-        """Get total number of contracts to process for a chain"""
-        chain_config = self.chains[chain_name]
-        
+        """Get total number of UNIQUE bytecodes to process for a chain (from dedup table)"""
+        table_name = self.get_dedup_table_name(chain_name)
         query = f"""
-        SELECT COUNT(*) as total_contracts
-        FROM `{chain_config.dataset_name}.{chain_config.contracts_table}`
-        WHERE {chain_config.timestamp_field} < TIMESTAMP(@cutoff_date)
-        AND {chain_config.bytecode_field} IS NOT NULL
-        AND LENGTH({chain_config.bytecode_field}) > 2
+        SELECT COUNT(*) AS total_contracts
+        FROM `{self.project_id}.{self.result_dataset}.{table_name}`
         """
-        
-        job_config = bigquery.QueryJobConfig(
-            query_parameters=[
-                bigquery.ScalarQueryParameter("cutoff_date", "DATE", self.cutoff_date)
-            ]
-        )
-        
-        result = self.client.query(query, job_config=job_config).to_dataframe()
+        result = self.client.query(query).to_dataframe()
         return int(result.iloc[0]['total_contracts'])
     
     def fetch_contract_batch(self, chain_name: str, offset: int, limit: int) -> pd.DataFrame:
-        """Fetch a batch of contracts from BigQuery"""
-        chain_config = self.chains[chain_name]
-        
+        """Fetch a batch of UNIQUE bytecodes (representative rows) from the per-chain dedup table"""
+        table_name = self.get_dedup_table_name(chain_name)
         query = f"""
-        SELECT 
-            {chain_config.address_field} as address,
-            {chain_config.bytecode_field} as bytecode,
-            {chain_config.timestamp_field} as deployment_timestamp,
-            {chain_config.block_number_field} as block_number
-        FROM `{chain_config.dataset_name}.{chain_config.contracts_table}`
-        WHERE {chain_config.timestamp_field} < TIMESTAMP(@cutoff_date)
-        AND {chain_config.bytecode_field} IS NOT NULL
-        AND LENGTH({chain_config.bytecode_field}) > 2
-        ORDER BY {chain_config.block_number_field}
+        SELECT address, bytecode, deployment_timestamp, block_number
+        FROM `{self.project_id}.{self.result_dataset}.{table_name}`
+        ORDER BY block_number
         LIMIT @limit OFFSET @offset
         """
-        
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter("cutoff_date", "DATE", self.cutoff_date),
                 bigquery.ScalarQueryParameter("limit", "INTEGER", limit),
                 bigquery.ScalarQueryParameter("offset", "INTEGER", offset)
             ]
         )
-        
+        return self.client.query(query, job_config=job_config).to_dataframe()
+
+    def fetch_all_contracts_for_bytecodes(self, chain_name: str, bytecodes: List[str]) -> pd.DataFrame:
+        """Fetch all contracts whose bytecode is in the provided list"""
+        if not bytecodes:
+            import pandas as pd  # local import to avoid top-level dependency issues
+            return pd.DataFrame(columns=["address", "bytecode", "deployment_timestamp", "block_number"])  # type: ignore
+
+        chain_config = self.chains[chain_name]
+        query = f"""
+        SELECT 
+          {chain_config.address_field} AS address,
+          {chain_config.bytecode_field} AS bytecode,
+          {chain_config.timestamp_field} AS deployment_timestamp,
+          {chain_config.block_number_field} AS block_number
+        FROM `{chain_config.dataset_name}.{chain_config.contracts_table}`
+        WHERE {chain_config.timestamp_field} < TIMESTAMP(@cutoff_date)
+          AND {chain_config.bytecode_field} IN UNNEST(@bytecodes)
+        """
+
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("cutoff_date", "DATE", self.cutoff_date),
+                bigquery.ArrayQueryParameter("bytecodes", "STRING", bytecodes)
+            ]
+        )
+
+        return self.client.query(query, job_config=job_config).to_dataframe()
+
+    def fetch_existing_results_for_hashes(self, chain_name: str, bytecode_hashes: List[str]) -> pd.DataFrame:
+        """Fetch any existing results for the given bytecode_hash set (per chain)"""
+        if not bytecode_hashes:
+            import pandas as pd
+            return pd.DataFrame(columns=[
+                "bytecode_hash", "is_factory", "is_create_only", "is_create2_only", "is_both"
+            ])
+
+        query = f"""
+        SELECT bytecode_hash, ANY_VALUE(is_factory) AS is_factory,
+               ANY_VALUE(is_create_only) AS is_create_only,
+               ANY_VALUE(is_create2_only) AS is_create2_only,
+               ANY_VALUE(is_both) AS is_both
+        FROM `{self.project_id}.{self.result_dataset}.{self.result_table}`
+        WHERE chain = @chain
+          AND bytecode_hash IN UNNEST(@hashes)
+        GROUP BY bytecode_hash
+        """
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("chain", "STRING", chain_name),
+                bigquery.ArrayQueryParameter("hashes", "STRING", bytecode_hashes)
+            ]
+        )
+        return self.client.query(query, job_config=job_config).to_dataframe()
+
+    def fetch_existing_addresses(self, chain_name: str, addresses: List[str]) -> pd.DataFrame:
+        """Fetch addresses that already have results (per chain)"""
+        if not addresses:
+            import pandas as pd
+            return pd.DataFrame(columns=["address"])
+
+        query = f"""
+        SELECT address
+        FROM `{self.project_id}.{self.result_dataset}.{self.result_table}`
+        WHERE chain = @chain
+          AND address IN UNNEST(@addresses)
+        GROUP BY address
+        """
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("chain", "STRING", chain_name),
+                bigquery.ArrayQueryParameter("addresses", "STRING", addresses)
+            ]
+        )
         return self.client.query(query, job_config=job_config).to_dataframe()
     
-    def detect_factory_batch(self, contracts_df: pd.DataFrame, chain_name: str) -> List[DetectionResult]:
-        """Process a batch of contracts through factory detector"""
-        results = []
-        
+    def detect_factory_batch(self, contracts_df: pd.DataFrame, chain_name: str) -> Tuple[List[DetectionResult], int]:
+        """Process a batch of UNIQUE-bytecode contracts, avoid re-running detection for already-result bytecodes,
+        and only append missing addresses to results.
+        """
+        results: List[DetectionResult] = []
+
+        # Prepare batch maps
+        batch_entries = []
         for _, row in contracts_df.iterrows():
+            bytecode = row['bytecode']
+            bch = hashlib.sha256(str(bytecode).encode()).hexdigest()
+            batch_entries.append({
+                'bytecode_norm': (bytecode or '').lower(),
+                'bytecode_hash': bch,
+                'rep_address': row['address'],
+            })
+
+        hashes = [e['bytecode_hash'] for e in batch_entries]
+        # Query existing results by bytecode_hash
+        existing_df = self.fetch_existing_results_for_hashes(chain_name, hashes)
+        existing_map = {str(r['bytecode_hash']): {
+            'is_factory': bool(r['is_factory']),
+            'is_create_only': bool(r['is_create_only']),
+            'is_create2_only': bool(r['is_create2_only']),
+            'is_both': bool(r['is_both'])
+        } for _, r in existing_df.iterrows()} if not existing_df.empty else {}
+
+        # Map bytecode_norm -> (flags, exec_time_ms)
+        det_map: Dict[str, Tuple[Dict[str, bool], float]] = {}
+
+        for e in batch_entries:
+            key = e['bytecode_norm']
+            bch = e['bytecode_hash']
+            if bch in existing_map:
+                # Reuse existing flags; no detection run
+                flags = existing_map[bch]
+                det_map[key] = (flags, 0.0)
+            else:
+                # Run detector with hard timeout via subprocess
+                q: Queue = multiprocessing.Queue()
+                p: Process = multiprocessing.Process(target=_detect_worker, args=(key, q))
+                try:
+                    p.start()
+                    p.join(self.per_contract_timeout_sec)
+                    if p.is_alive():
+                        # Timed out: terminate and record as non-factory with timeout exec time
+                        p.terminate()
+                        p.join()
+                        self.logger.warning(
+                            f"{chain_name}: Detection timeout after {self.per_contract_timeout_sec}s for bytecode (rep {e['rep_address']})"
+                        )
+                        det_map[key] = ({
+                            'is_factory': False,
+                            'is_create_only': False,
+                            'is_create2_only': False,
+                            'is_both': False,
+                        }, float(self.per_contract_timeout_sec * 1000))
+                    else:
+                        try:
+                            msg = q.get(timeout=1.0)
+                        except Exception:
+                            msg = ("error", "No result from worker")
+
+                        if msg and isinstance(msg, tuple) and msg[0] == "ok":
+                            _, flags, exec_ms = msg
+                            det_map[key] = (flags, float(exec_ms))
+                        else:
+                            err_desc = msg[1] if isinstance(msg, tuple) and len(msg) > 1 else "unknown error"
+                            self.logger.error(
+                                f"{chain_name}: Detection error for bytecode (rep {e['rep_address']}): {err_desc}"
+                            )
+                            det_map[key] = ({
+                                'is_factory': False,
+                                'is_create_only': False,
+                                'is_create2_only': False,
+                                'is_both': False,
+                            }, 0.0)
+                except Exception as e2:
+                    self.logger.error(f"{chain_name}: Exception starting detection (rep {e['rep_address']}): {e2}")
+                finally:
+                    try:
+                        q.close()
+                    except Exception:
+                        pass
+
+        # Unique factory count for this batch
+        unique_factories = sum(1 for (_, (flags, _)) in det_map.items() if flags['is_factory'])
+
+        # Fetch all addresses for these bytecodes
+        bytecodes_list = list(det_map.keys())
+        expanded_df = self.fetch_all_contracts_for_bytecodes(chain_name, bytecodes_list)
+
+        # Filter out addresses that already have results
+        all_addresses = expanded_df['address'].astype(str).tolist() if not expanded_df.empty else []
+        existing_addr_df = self.fetch_existing_addresses(chain_name, all_addresses) if all_addresses else None
+        existing_addr_set = set(existing_addr_df['address'].astype(str)) if existing_addr_df is not None and not existing_addr_df.empty else set()
+
+        for _, row in expanded_df.iterrows():
+            addr = str(row['address'])
+            if addr in existing_addr_set:
+                continue  # skip writing duplicates
+
+            bc_norm = (row['bytecode'] or '').lower()
+            if bc_norm not in det_map:
+                continue
+            flags, exec_ms = det_map[bc_norm]
+
+            bytecode_hash = hashlib.sha256(str(row['bytecode']).encode()).hexdigest()
+
             try:
-                start_time = time.time()
-                
-                # Run factory detection
-                detection_result = self.detector.detect_factory_contract(row['bytecode'])
-                
-                execution_time = (time.time() - start_time) * 1000  # Convert to ms
-                
-                # Calculate bytecode hash for deduplication analysis
-                bytecode_hash = hashlib.sha256(row['bytecode'].encode()).hexdigest()
-                
-                # Determine factory type from FactoryResult
-                is_factory = detection_result.is_factory_contract
-                
-                # Parse factory type to determine CREATE/CREATE2 usage
-                has_create = len(detection_result.verified_create_positions) > 0
-                has_create2 = len(detection_result.verified_create2_positions) > 0
-                
-                is_create_only = is_factory and has_create and not has_create2
-                is_create2_only = is_factory and has_create2 and not has_create
-                is_both = is_factory and has_create and has_create2
-                
-                # Create result object
                 result = DetectionResult(
                     chain=chain_name,
-                    address=row['address'],
-                    is_factory=is_factory,
-                    is_create2_only=is_create2_only,
-                    is_create_only=is_create_only,
-                    is_both=is_both,
-                    execution_time_ms=execution_time,
+                    address=addr,
+                    is_factory=flags['is_factory'],
+                    is_create2_only=flags['is_create2_only'],
+                    is_create_only=flags['is_create_only'],
+                    is_both=flags['is_both'],
+                    execution_time_ms=float(exec_ms),
                     bytecode_hash=bytecode_hash,
-                    deployment_date=str(row['deployment_timestamp'].date()),
+                    deployment_date=str(pd.to_datetime(row['deployment_timestamp']).date()),
                     block_number=int(row['block_number']),
                     processed_at=datetime.now(timezone.utc).isoformat()
                 )
-                
                 results.append(result)
-                
-            except Exception as e:
-                self.logger.error(f"Error processing contract {row['address']}: {e}")
+            except Exception as e3:
+                self.logger.error(f"Error building result for address {addr}: {e3}")
                 continue
-        
-        return results
+
+        return results, unique_factories
     
     def save_results_batch(self, results: List[DetectionResult]):
         """Save detection results to BigQuery"""
@@ -437,12 +672,15 @@ class RQ2FactoryDetectionExperiment:
         """Process all contracts for a specific chain"""
         self.logger.info(f"Starting processing for {chain_name}")
         
+        # Ensure we have a dedup table for this chain
+        self.ensure_dedup_table(chain_name)
+
         # Get current progress
         progress = self.get_chain_progress(chain_name)
         total_contracts = self.get_total_contracts_count(chain_name)
         
-        self.logger.info(f"{chain_name}: Total contracts to process: {total_contracts:,}")
-        self.logger.info(f"{chain_name}: Already processed: {progress['processed_contracts']:,}")
+        self.logger.info(f"{chain_name}: Total UNIQUE bytecodes to process: {total_contracts:,}")
+        self.logger.info(f"{chain_name}: Already processed (unique): {progress['processed_contracts']:,}")
         
         # Initialize progress tracker
         remaining = total_contracts - progress['processed_contracts']
@@ -464,22 +702,21 @@ class RQ2FactoryDetectionExperiment:
                     break
                 
                 # Process batch
-                self.logger.info(f"{chain_name}: Processing {len(batch_df)} contracts")
-                results = self.detect_factory_batch(batch_df, chain_name)
-                
-                # Save results
+                self.logger.info(f"{chain_name}: Processing {len(batch_df)} UNIQUE bytecodes")
+                results, unique_factories = self.detect_factory_batch(batch_df, chain_name)
+
+                # Save results (all addresses for bytecodes in batch)
                 if results:
                     self.save_results_batch(results)
-                    
-                    # Update counters
-                    batch_factories = sum(1 for r in results if r.is_factory)
-                    factories_count += batch_factories
-                    processed_count += len(results)
-                    
-                    # Update progress tracker
-                    for _ in range(len(results)):
-                        tracker.update(False)  # We'll count factories separately
-                    for _ in range(batch_factories):
+
+                    # Update counters: track progress by UNIQUE bytecodes
+                    factories_count += unique_factories
+                    processed_count += len(batch_df)
+
+                    # Update progress tracker by UNIQUE bytecodes
+                    for _ in range(len(batch_df)):
+                        tracker.update(False)
+                    for _ in range(unique_factories):
                         tracker.update(True)
                 
                 # Update progress in database
@@ -493,8 +730,8 @@ class RQ2FactoryDetectionExperiment:
                 stats = tracker.get_stats()
                 self.logger.info(
                     f"{chain_name}: Progress {stats['progress_pct']:.2f}% "
-                    f"({stats['processed']:,}/{stats['total']:,}) - "
-                    f"Factories: {stats['factories_found']:,} - "
+                    f"({stats['processed']:,}/{stats['total']:,} unique) - "
+                    f"Factory bytecodes: {stats['factories_found']:,} - "
                     f"Rate: {stats['rate_per_hour']:.0f}/hr - "
                     f"ETA: {stats['eta_hours']:.1f}h"
                 )
@@ -521,27 +758,38 @@ class RQ2FactoryDetectionExperiment:
         self.logger.info(f"{chain_name}: Processing completed - {factories_count:,} factories found")
     
     def run_experiment(self, chains: Optional[List[str]] = None):
-        """Run the complete RQ2 experiment"""
+        """Run the complete RQ2 experiment.
+
+        Changes:
+        - Process multiple chains concurrently (e.g., ethereum and polygon).
+        - Preserve per-chain logic; BigQuery operations remain per-chain.
+        """
         if chains is None:
             chains = list(self.chains.keys())
-        
+
         self.logger.info("=== Starting RQ2 Factory Detection Experiment ===")
         self.logger.info(f"Processing chains: {chains}")
         self.logger.info(f"Cutoff date: {self.cutoff_date}")
         self.logger.info(f"Batch size: {self.batch_size}")
         self.logger.info(f"Max workers: {self.max_workers}")
-        
-        # Setup tables
+        self.logger.info(f"Per-contract timeout: {self.per_contract_timeout_sec}s")
+
+        # Setup tables (once)
         self.setup_result_tables()
-        
-        # Process each chain
-        for chain_name in chains:
-            try:
-                self.process_chain(chain_name)
-            except Exception as e:
-                self.logger.error(f"Failed to process {chain_name}: {e}")
-                continue
-        
+
+        # Run chains concurrently, up to max_workers or number of chains
+        max_chain_workers = max(1, min(self.max_workers, len(chains)))
+        self.logger.info(f"Running up to {max_chain_workers} chains concurrently")
+
+        with ThreadPoolExecutor(max_workers=max_chain_workers) as executor:
+            future_map = {executor.submit(self.process_chain, chain): chain for chain in chains}
+            for future in as_completed(future_map):
+                chain_name = future_map[future]
+                try:
+                    future.result()
+                except Exception as e:
+                    self.logger.error(f"Failed to process {chain_name}: {e}")
+
         self.logger.info("=== RQ2 Experiment Completed ===")
     
     def get_experiment_summary(self) -> Dict[str, Any]:
