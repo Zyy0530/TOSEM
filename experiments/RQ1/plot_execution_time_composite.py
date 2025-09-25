@@ -3,6 +3,8 @@
 Script to generate composite histogram and CDF plot for factory detector execution times
 """
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import json
@@ -53,8 +55,14 @@ def generate_execution_time_cdf():
 
     return all_times
 
-def plot_execution_time_cdf(execution_times, output_path):
-    """Plot composite histogram and CDF with dual y-axes"""
+def plot_execution_time_cdf(execution_times, output_path, bin_width_ms: float = 2.0):
+    """Plot composite histogram and CDF with dual y-axes
+
+    Args:
+        execution_times: Array of execution times in milliseconds.
+        output_path: Where to save the figure (PDF/PNG will be produced).
+        bin_width_ms: Histogram bin width in milliseconds (default 2.0ms for finer granularity).
+    """
 
     # Set up style consistent with RQ2 plots
     plt.style.use('seaborn-v0_8-whitegrid')
@@ -69,7 +77,7 @@ def plot_execution_time_cdf(execution_times, output_path):
     rcParams['ytick.major.width'] = 0.8
     rcParams['xtick.minor.width'] = 0.6
     rcParams['ytick.minor.width'] = 0.6
-    rcParams['lines.linewidth'] = 2.0
+    rcParams['lines.linewidth'] = 1.0
     rcParams['grid.linewidth'] = 0.5
     rcParams['grid.alpha'] = 0.3
 
@@ -88,7 +96,11 @@ def plot_execution_time_cdf(execution_times, output_path):
 
     # Create histogram bins (left axis - count)
     max_time = min(np.max(sorted_times), 100)  # Cap at 100ms for better visibility
-    bins = np.linspace(0, max_time, 25)  # 25 bins for good resolution
+    # Use finer granularity bins controlled by bin_width_ms
+    if bin_width_ms <= 0:
+        bin_width_ms = 2.0
+    # Ensure the last edge includes max_time
+    bins = np.arange(0, max_time + bin_width_ms + 1e-9, bin_width_ms)
 
     # Plot histogram with pink/red bars similar to reference image
     counts, bin_edges, patches = ax1.hist(execution_times[execution_times <= max_time],
@@ -104,7 +116,7 @@ def plot_execution_time_cdf(execution_times, output_path):
     y_values = np.arange(1, n + 1) / n
 
     # Plot CDF curve (right axis) - lighter blue line, slightly thinner
-    cdf_line = ax2.plot(sorted_times, y_values, 'cornflowerblue', linewidth=2.5, label='CDF')
+    cdf_line = ax2.plot(sorted_times, y_values, 'cornflowerblue', linewidth=0.9, label='CDF')
 
     # Calculate percentiles for statistics (but don't show on plot)
     p25 = np.percentile(sorted_times, 25)
@@ -147,6 +159,7 @@ def plot_execution_time_cdf(execution_times, output_path):
     print(f"  95th percentile: {np.percentile(sorted_times, 95):.2f} ms")
     print(f"  99th percentile: {np.percentile(sorted_times, 99):.2f} ms")
     print(f"  Maximum execution time: {np.max(sorted_times):.2f} ms")
+    print(f"  Histogram bin width: {bin_width_ms:.2f} ms; bins: {len(bins)-1}")
     print(f"  Contracts within 100ms: {np.sum(execution_times <= 100):,} ({np.sum(execution_times <= 100)/len(execution_times)*100:.1f}%)")
 
     return p25, p50, p75

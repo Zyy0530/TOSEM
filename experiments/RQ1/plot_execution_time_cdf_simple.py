@@ -3,6 +3,8 @@
 Script to generate CDF plot for factory detector execution times using summary statistics
 """
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib import rcParams
 import json
@@ -66,7 +68,7 @@ def plot_execution_time_cdf(execution_times, output_path):
     rcParams['ytick.major.width'] = 1.2
     rcParams['xtick.minor.width'] = 0.8
     rcParams['ytick.minor.width'] = 0.8
-    rcParams['lines.linewidth'] = 2.0
+    rcParams['lines.linewidth'] = 1.2
     rcParams['grid.linewidth'] = 0.8
     rcParams['grid.alpha'] = 0.3
 
@@ -81,7 +83,7 @@ def plot_execution_time_cdf(execution_times, output_path):
     y_values = np.arange(1, n + 1) / n
 
     # Plot CDF curve
-    ax.plot(sorted_times, y_values, 'b-', linewidth=2.5, label='Factory Detector')
+    ax.plot(sorted_times, y_values, 'b-', linewidth=1.2, label='Factory Detector')
 
     # Calculate percentiles
     p25 = np.percentile(sorted_times, 25)

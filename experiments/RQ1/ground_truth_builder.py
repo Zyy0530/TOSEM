@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Ground Truth数据集构建工具
-用于工厂合约检测器有效性评估实验
-"""
+ 
 
 import json
 import time
@@ -12,26 +9,23 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from enum import Enum
 
-# 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class ContractType(Enum):
-    """合约类型枚举"""
-    FACTORY_CREATE = "factory_create"           # CREATE操作码工厂
-    FACTORY_CREATE2 = "factory_create2"         # CREATE2操作码工厂  
-    FACTORY_MIXED = "factory_mixed"             # 混合类型工厂
-    FACTORY_PROXY = "factory_proxy"             # 代理模式工厂
-    NON_FACTORY_TOKEN = "non_factory_token"     # Token合约
-    NON_FACTORY_NFT = "non_factory_nft"         # NFT合约
-    NON_FACTORY_DEFI = "non_factory_defi"       # DeFi应用合约
-    NON_FACTORY_GOVERNANCE = "non_factory_gov"  # 治理合约
-    NON_FACTORY_MULTISIG = "non_factory_multisig" # 多签合约
-    NON_FACTORY_OTHER = "non_factory_other"     # 其他合约
+    FACTORY_CREATE = "factory_create"
+    FACTORY_CREATE2 = "factory_create2"
+    FACTORY_MIXED = "factory_mixed"
+    FACTORY_PROXY = "factory_proxy"
+    NON_FACTORY_TOKEN = "non_factory_token"
+    NON_FACTORY_NFT = "non_factory_nft"
+    NON_FACTORY_DEFI = "non_factory_defi"
+    NON_FACTORY_GOVERNANCE = "non_factory_gov"
+    NON_FACTORY_MULTISIG = "non_factory_multisig"
+    NON_FACTORY_OTHER = "non_factory_other"
 
 @dataclass
 class GroundTruthContract:
-    """Ground Truth合约数据结构"""
     address: str
     chain: str
     is_factory: bool
@@ -41,20 +35,17 @@ class GroundTruthContract:
     block_number: int
     tx_hash: str
     
-    # 验证信息
-    verification_method: str    # 验证方法: "expert_manual", "source_code", "known_project"
-    verified_by: str           # 验证者
+    verification_method: str
+    verified_by: str
     verification_date: datetime
-    confidence_level: float    # 置信度 0-1
+    confidence_level: float
     
-    # 元数据
     contract_name: Optional[str] = None
     project_name: Optional[str] = None
     source_url: Optional[str] = None
     notes: Optional[str] = None
 
 class GroundTruthBuilder:
-    """Ground Truth数据集构建器"""
     
     def __init__(self):
         self.contracts = []
@@ -62,50 +53,47 @@ class GroundTruthBuilder:
         self.target_distribution = self._get_target_distribution()
         
     def _load_known_factories(self) -> Dict[str, Dict]:
-        """加载已知的工厂合约地址"""
         known_factories = {
-            # Ethereum主网知名工厂合约
             "ethereum": {
-                "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f": {  # Uniswap V2
+                "0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f": {
                     "name": "Uniswap V2 Factory",
                     "project": "Uniswap",
                     "type": ContractType.FACTORY_CREATE2,
                     "url": "https://github.com/Uniswap/v2-core"
                 },
-                "0x1f98431c8ad98523631ae4a59f267346ea31f984": {  # Uniswap V3
+                "0x1f98431c8ad98523631ae4a59f267346ea31f984": {
                     "name": "Uniswap V3 Factory", 
                     "project": "Uniswap",
                     "type": ContractType.FACTORY_CREATE2,
                     "url": "https://github.com/Uniswap/v3-core"
                 },
-                "0xc0aee478e3658e2610c5f7a4a2e1777ce9e4f2ac": {  # SushiSwap
+                "0xc0aee478e3658e2610c5f7a4a2e1777ce9e4f2ac": {
                     "name": "SushiSwap Factory",
                     "project": "SushiSwap", 
                     "type": ContractType.FACTORY_CREATE2,
                     "url": "https://github.com/sushiswap/sushiswap"
                 },
-                "0xba12222222228d8ba445958a75a0704d566bf2c8": {  # Balancer V2
+                "0xba12222222228d8ba445958a75a0704d566bf2c8": {
                     "name": "Balancer V2 Vault",
                     "project": "Balancer",
                     "type": ContractType.FACTORY_CREATE,
                     "url": "https://github.com/balancer-labs/balancer-v2-monorepo"
                 },
-                "0x0959158b6040d32d04c301a72cbfd6b39e21c9ae": {  # Curve Factory
+                "0x0959158b6040d32d04c301a72cbfd6b39e21c9ae": {
                     "name": "Curve Factory",
                     "project": "Curve",
                     "type": ContractType.FACTORY_CREATE2,
                     "url": "https://github.com/curvefi/curve-factory"
                 }
             },
-            # Polygon主网工厂合约
             "polygon": {
-                "0x5757371414417b8c6caad45baef941abc7d3ab32": {  # QuickSwap
+                "0x5757371414417b8c6caad45baef941abc7d3ab32": {
                     "name": "QuickSwap Factory",
                     "project": "QuickSwap",
                     "type": ContractType.FACTORY_CREATE2,
                     "url": "https://github.com/QuickSwap/QuickSwap-contracts"
                 },
-                "0xc35dadb65012ec5796536bd9864ed8773abc74c4": {  # SushiSwap Polygon
+                "0xc35dadb65012ec5796536bd9864ed8773abc74c4": {
                     "name": "SushiSwap Factory (Polygon)",
                     "project": "SushiSwap",
                     "type": ContractType.FACTORY_CREATE2,
@@ -116,25 +104,20 @@ class GroundTruthBuilder:
         return known_factories
     
     def _get_target_distribution(self) -> Dict[str, float]:
-        """获取目标数据分布"""
         return {
-            # 工厂合约分布 (35%)
-            "factory_create": 0.15,      # CREATE工厂 15%
-            "factory_create2": 0.12,     # CREATE2工厂 12%  
-            "factory_mixed": 0.05,       # 混合工厂 5%
-            "factory_proxy": 0.03,       # 代理工厂 3%
-            
-            # 非工厂合约分布 (65%)
-            "non_factory_token": 0.20,   # Token合约 20%
-            "non_factory_nft": 0.15,     # NFT合约 15%
-            "non_factory_defi": 0.15,    # DeFi应用 15%
-            "non_factory_governance": 0.08, # 治理合约 8%
-            "non_factory_multisig": 0.04,   # 多签合约 4%
-            "non_factory_other": 0.03,      # 其他 3%
+            "factory_create": 0.15,
+            "factory_create2": 0.12,
+            "factory_mixed": 0.05,
+            "factory_proxy": 0.03,
+            "non_factory_token": 0.20,
+            "non_factory_nft": 0.15,
+            "non_factory_defi": 0.15,
+            "non_factory_governance": 0.08,
+            "non_factory_multisig": 0.04,
+            "non_factory_other": 0.03,
         }
     
     def add_known_factory_contracts(self):
-        """添加已知的工厂合约到数据集"""
         logger.info("Adding known factory contracts...")
         
         for chain, factories in self.known_factories.items():
@@ -144,10 +127,10 @@ class GroundTruthBuilder:
                     chain=chain,
                     is_factory=True,
                     contract_type=info["type"],
-                    bytecode="",  # 需要从区块链获取
-                    created_at=datetime.now(),  # 需要从区块链获取
-                    block_number=0,  # 需要从区块链获取
-                    tx_hash="",  # 需要从区块链获取
+                    bytecode="",
+                    created_at=datetime.now(),
+                    block_number=0,
+                    tx_hash="",
                     verification_method="known_project",
                     verified_by="system",
                     verification_date=datetime.now(),
@@ -162,11 +145,9 @@ class GroundTruthBuilder:
         logger.info(f"Added {len(self.contracts)} known factory contracts")
     
     def collect_random_contracts(self, chain: str, count: int) -> List[Dict]:
-        """从BigQuery随机收集合约样本（模拟）"""
         logger.info(f"Collecting {count} random contracts from {chain}...")
         
-        # 这里应该调用BigQuery API获取随机合约
-        # 为了演示，我们创建模拟数据
+        # Demo: generate mock data
         random_contracts = []
         for i in range(count):
             contract = {
@@ -181,7 +162,6 @@ class GroundTruthBuilder:
         return random_contracts
     
     def manual_annotation_interface(self, contracts: List[Dict]) -> List[GroundTruthContract]:
-        """手动标注界面（简化版）"""
         logger.info("Starting manual annotation process...")
         
         annotated_contracts = []
@@ -191,7 +171,7 @@ class GroundTruthBuilder:
             print(f"Address: {contract['address']}")
             print(f"Bytecode preview: {contract['bytecode'][:100]}...")
             
-            # 简化的标注界面
+            # Simplified interactive prompt
             while True:
                 is_factory_input = input("Is this a factory contract? (y/n/skip): ").lower()
                 if is_factory_input in ['y', 'n', 'skip']:
@@ -259,7 +239,7 @@ class GroundTruthBuilder:
             
             annotated_contract = GroundTruthContract(
                 address=contract['address'].lower(),
-                chain="ethereum",  # 假设是以太坊
+                chain="ethereum",
                 is_factory=is_factory,
                 contract_type=contract_type,
                 bytecode=contract['bytecode'],
@@ -279,7 +259,6 @@ class GroundTruthBuilder:
         return annotated_contracts
     
     def validate_annotations(self, contracts: List[GroundTruthContract]) -> Dict[str, float]:
-        """验证标注质量"""
         logger.info("Validating annotation quality...")
         
         validation_results = {
@@ -289,7 +268,7 @@ class GroundTruthBuilder:
             'verification_methods': {}
         }
         
-        # 统计验证方法分布
+        # Count verification methods
         method_counts = {}
         for contract in contracts:
             method = contract.verification_method
@@ -304,7 +283,6 @@ class GroundTruthBuilder:
         return validation_results
     
     def export_dataset(self, filename: str):
-        """导出数据集"""
         logger.info(f"Exporting dataset to {filename}...")
         
         export_data = {
@@ -317,7 +295,7 @@ class GroundTruthBuilder:
             'contracts': [asdict(contract) for contract in self.contracts]
         }
         
-        # 处理datetime对象的序列化
+        # Serialize datetime and Enum values
         def datetime_handler(obj):
             if isinstance(obj, datetime):
                 return obj.isoformat()
@@ -331,7 +309,6 @@ class GroundTruthBuilder:
         logger.info(f"Dataset exported successfully: {len(self.contracts)} contracts")
     
     def load_dataset(self, filename: str):
-        """加载数据集"""
         logger.info(f"Loading dataset from {filename}...")
         
         with open(filename, 'r', encoding='utf-8') as f:
@@ -339,7 +316,7 @@ class GroundTruthBuilder:
         
         self.contracts = []
         for contract_data in data['contracts']:
-            # 转换datetime字符串回datetime对象
+            # Convert datetime strings back to datetime objects
             contract_data['created_at'] = datetime.fromisoformat(contract_data['created_at'])
             contract_data['verification_date'] = datetime.fromisoformat(contract_data['verification_date'])
             contract_data['contract_type'] = ContractType(contract_data['contract_type'])
@@ -350,7 +327,6 @@ class GroundTruthBuilder:
         logger.info(f"Loaded {len(self.contracts)} contracts from dataset")
     
     def generate_statistics(self) -> Dict:
-        """生成数据集统计信息"""
         stats = {
             'total_contracts': len(self.contracts),
             'factory_contracts': sum(1 for c in self.contracts if c.is_factory),
@@ -361,22 +337,22 @@ class GroundTruthBuilder:
             'confidence_distribution': {}
         }
         
-        # 按链统计
+        # By chain
         for contract in self.contracts:
             chain = contract.chain
             stats['by_chain'][chain] = stats['by_chain'].get(chain, 0) + 1
         
-        # 按类型统计
+        # By type
         for contract in self.contracts:
             contract_type = contract.contract_type.value
             stats['by_type'][contract_type] = stats['by_type'].get(contract_type, 0) + 1
         
-        # 按验证方法统计
+        # By verification method
         for contract in self.contracts:
             method = contract.verification_method
             stats['by_verification_method'][method] = stats['by_verification_method'].get(method, 0) + 1
         
-        # 置信度分布
+        # Confidence distribution
         confidences = [c.confidence_level for c in self.contracts]
         stats['confidence_distribution'] = {
             'mean': sum(confidences) / len(confidences),
@@ -388,24 +364,18 @@ class GroundTruthBuilder:
         return stats
 
 def main():
-    """主函数 - 演示Ground Truth构建流程"""
     print("🏗️  Factory Contract Ground Truth Dataset Builder")
     print("=" * 60)
     
-    # 创建构建器
     builder = GroundTruthBuilder()
     
-    # 步骤1: 添加已知工厂合约
     builder.add_known_factory_contracts()
     
-    # 步骤2: 收集随机合约样本（演示）
     random_contracts = builder.collect_random_contracts("ethereum", 10)
     
-    # 步骤3: 手动标注（演示模式 - 实际使用时取消注释）
     print("\n🏷️  Starting manual annotation process...")
     print("Note: In demo mode, automatic annotation will be used")
     
-    # 演示模式：自动生成一些标注数据
     for i, contract in enumerate(random_contracts[:3]):  # 只处理前3个作为演示
         is_factory = i % 3 == 0  # 每3个中1个是工厂合约
         contract_type = ContractType.FACTORY_CREATE if is_factory else ContractType.NON_FACTORY_TOKEN
@@ -428,7 +398,6 @@ def main():
         
         builder.contracts.append(annotated_contract)
     
-    # 步骤4: 数据集验证和统计
     stats = builder.generate_statistics()
     print(f"\n📊 Dataset Statistics:")
     print(f"Total contracts: {stats['total_contracts']}")
@@ -437,7 +406,6 @@ def main():
     print(f"Factory ratio: {stats['factory_contracts']/(stats['total_contracts']):.2%}")
     print(f"Average confidence: {stats['confidence_distribution']['mean']:.3f}")
     
-    # 步骤5: 导出数据集
     dataset_filename = f"ground_truth_dataset_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     builder.export_dataset(dataset_filename)
     
@@ -445,7 +413,6 @@ def main():
     print(f"📁 Dataset saved to: {dataset_filename}")
     print(f"🔗 Use this dataset to evaluate your factory detector")
     
-    # 演示加载和使用
     print(f"\n🧪 Demo: Loading and using the dataset...")
     new_builder = GroundTruthBuilder()
     new_builder.load_dataset(dataset_filename)

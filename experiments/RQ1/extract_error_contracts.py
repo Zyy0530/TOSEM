@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """
-提取原始Factory Detector的具体误报和漏报合约列表
-
 This script extracts the complete list of false positive and false negative contracts
 with their detailed information for further analysis.
 """
@@ -12,7 +10,6 @@ from typing import List, Dict
 
 
 def extract_false_positives() -> List[Dict]:
-    """提取所有False Positives合约"""
     
     # Load evaluation results
     with open('factory_detector_evaluation_results.json', 'r') as f:
@@ -27,7 +24,6 @@ def extract_false_positives() -> List[Dict]:
 
 
 def extract_false_negatives() -> List[Dict]:
-    """提取所有False Negatives合约"""
     
     # Load evaluation results
     with open('factory_detector_evaluation_results.json', 'r') as f:
@@ -42,7 +38,6 @@ def extract_false_negatives() -> List[Dict]:
 
 
 def save_false_positives_list():
-    """保存False Positives列表到文件"""
     
     false_positives = extract_false_positives()
     
@@ -50,11 +45,9 @@ def save_false_positives_list():
     print(f"FALSE POSITIVES 完整列表 ({len(false_positives)}个合约)")
     print("=" * 80)
     
-    # 准备CSV数据
     csv_data = []
     
     for i, contract in enumerate(false_positives):
-        # 提取合约名称
         contract_name = "Unknown"
         if contract.get('verification_notes') and 'Contract:' in contract['verification_notes']:
             try:
@@ -62,7 +55,6 @@ def save_false_positives_list():
             except:
                 pass
         
-        # 提取CREATE执行统计
         create_count = contract.get('create_positions', 0)
         create2_count = contract.get('create2_positions', 0)
         
@@ -78,7 +70,6 @@ def save_false_positives_list():
             print(f"    验证信息: {notes}")
         print()
         
-        # 准备CSV行
         csv_data.append({
             'address': contract['address'],
             'contract_name': contract_name,
@@ -90,7 +81,6 @@ def save_false_positives_list():
             'verification_notes': contract.get('verification_notes', '')
         })
     
-    # 保存到CSV文件
     with open('false_positives_list.csv', 'w', newline='', encoding='utf-8') as csvfile:
         fieldnames = ['address', 'contract_name', 'factory_type', 'create_positions', 'create2_positions', 
                      'execution_time_ms', 'source_type', 'verification_notes']
@@ -103,7 +93,6 @@ def save_false_positives_list():
 
 
 def save_false_negatives_list():
-    """保存False Negatives列表到文件"""
     
     false_negatives = extract_false_negatives()
     
@@ -111,11 +100,9 @@ def save_false_negatives_list():
     print(f"FALSE NEGATIVES 完整列表 ({len(false_negatives)}个合约)")
     print("=" * 80)
     
-    # 准备CSV数据
     csv_data = []
     
     for i, contract in enumerate(false_negatives):
-        # 提取CREATE执行次数
         create_executed = "Unknown"
         if contract.get('verification_notes') and 'executed' in contract['verification_notes']:
             notes = contract['verification_notes']
@@ -128,7 +115,6 @@ def save_false_negatives_list():
                     except:
                         pass
         
-        # 检查是否是vanity地址
         is_vanity = contract['address'].lower().startswith('0x000000000')
         vanity_zeros = 0
         if is_vanity:
@@ -138,7 +124,6 @@ def save_false_negatives_list():
                 else:
                     break
         
-        # 分析字节码
         bytecode = contract['bytecode']
         if bytecode.startswith('0x'):
             bytecode_clean = bytecode[2:]
@@ -160,7 +145,6 @@ def save_false_negatives_list():
             print(f"    验证信息: {notes}")
         print()
         
-        # 准备CSV行
         csv_data.append({
             'address': contract['address'],
             'actual_create_executions': create_executed,
@@ -173,7 +157,6 @@ def save_false_negatives_list():
             'verification_notes': contract.get('verification_notes', '')
         })
     
-    # 保存到CSV文件
     with open('false_negatives_list.csv', 'w', newline='', encoding='utf-8') as csvfile:
         fieldnames = ['address', 'actual_create_executions', 'bytecode_create_bytes', 'bytecode_create2_bytes',
                      'is_vanity_address', 'vanity_leading_zeros', 'execution_time_ms', 'source_type', 'verification_notes']
@@ -186,7 +169,6 @@ def save_false_negatives_list():
 
 
 def create_summary_analysis():
-    """创建总结分析"""
     
     false_positives = extract_false_positives()
     false_negatives = extract_false_negatives()
@@ -195,10 +177,8 @@ def create_summary_analysis():
     print("误报和漏报总结分析")
     print("=" * 80)
     
-    # False Positives分析
     print(f"\n📊 FALSE POSITIVES 统计 ({len(false_positives)}个):")
     
-    # 按合约名分类
     fp_with_factory = len([c for c in false_positives 
                           if c.get('verification_notes') and 'Factory' in c.get('verification_notes', '')])
     fp_with_mint = len([c for c in false_positives 
@@ -208,7 +188,6 @@ def create_summary_analysis():
     print(f"  - 合约名包含'Mint': {fp_with_mint}个")
     print(f"  - 其他类型: {len(false_positives) - fp_with_factory - fp_with_mint}个")
     
-    # 按检测类型分类
     fp_create_only = len([c for c in false_positives if c.get('factory_type') == 'CREATE_ONLY'])
     fp_create2_only = len([c for c in false_positives if c.get('factory_type') == 'CREATE2_ONLY'])
     fp_both = len([c for c in false_positives if c.get('factory_type') == 'BOTH_CREATE_CREATE2'])
@@ -217,17 +196,14 @@ def create_summary_analysis():
     print(f"  - CREATE2_ONLY: {fp_create2_only}个") 
     print(f"  - BOTH_CREATE_CREATE2: {fp_both}个")
     
-    # False Negatives分析
     print(f"\n📊 FALSE NEGATIVES 统计 ({len(false_negatives)}个):")
     
-    # 按地址类型分类
     fn_vanity = len([c for c in false_negatives if c['address'].lower().startswith('0x000000000')])
     fn_normal = len(false_negatives) - fn_vanity
     
     print(f"  - Vanity地址 (CREATE2预计算): {fn_vanity}个")
     print(f"  - 普通地址: {fn_normal}个")
     
-    # 按CREATE执行规模分类
     create_counts = []
     for contract in false_negatives:
         if contract.get('verification_notes') and 'executed' in contract['verification_notes']:
@@ -252,7 +228,6 @@ def create_summary_analysis():
         print(f"  - 大规模 (>10000次): {large_scale}个")
         print(f"  - 平均CREATE执行: {sum(create_counts)/len(create_counts):,.0f}次")
     
-    # 按字节码特征分类
     fn_with_create_bytes = len([c for c in false_negatives 
                                if c['bytecode'].lower().count('f0') > 0])
     fn_with_create2_bytes = len([c for c in false_negatives 
@@ -266,12 +241,10 @@ def create_summary_analysis():
 
 
 def create_excel_compatible_files():
-    """创建Excel兼容的文件"""
     
     false_positives = extract_false_positives()
     false_negatives = extract_false_negatives()
     
-    # 创建False Positives的简化表格
     fp_simple = []
     for i, contract in enumerate(false_positives):
         contract_name = "Unknown"
@@ -291,7 +264,6 @@ def create_excel_compatible_files():
             contract.get('execution_time', 0)
         ])
     
-    # 创建False Negatives的简化表格
     fn_simple = []
     for i, contract in enumerate(false_negatives):
         create_executed = "Unknown"
@@ -321,7 +293,6 @@ def create_excel_compatible_files():
             contract.get('execution_time', 0)
         ])
     
-    # 保存为文本文件，方便复制到Excel
     with open('false_positives_table.txt', 'w', encoding='utf-8') as f:
         f.write("序号\t地址\t合约名称\t检测类型\tCREATE数\tCREATE2数\t执行时间(ms)\n")
         for row in fp_simple:
@@ -338,19 +309,14 @@ def create_excel_compatible_files():
 
 
 def main():
-    """主函数"""
     print("提取原始Factory Detector的具体误报和漏报合约...")
     
-    # 保存False Positives列表
     false_positives = save_false_positives_list()
     
-    # 保存False Negatives列表  
     false_negatives = save_false_negatives_list()
     
-    # 创建总结分析
     create_summary_analysis()
     
-    # 创建Excel兼容文件
     create_excel_compatible_files()
     
     print("\n" + "=" * 80)

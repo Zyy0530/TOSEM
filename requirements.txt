@@ -8,6 +8,14 @@ google-auth>=2.20.0
 pandas>=1.5.0
 numpy>=1.24.0
 
+# ML & plotting
+scikit-learn>=1.2.0
+matplotlib>=3.7.0
+
+# Networking & utilities
+requests>=2.31.0
+tqdm>=4.66.0
+
 # Existing dependencies (from original project)
 # Note: Ensure factory_detector.py and its dependencies are available
 

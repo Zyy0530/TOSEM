@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """
-深度分析原始Factory Detector的误报和漏报来源
-
 This script provides detailed analysis of where false positives and false negatives
 come from in the original factory detector.
 """
@@ -18,7 +16,6 @@ from factory_detector import ImprovedFactoryDetector
 
 
 def analyze_false_positives_sources():
-    """分析False Positives的具体来源"""
     
     print("=" * 80)
     print("原始DETECTOR FALSE POSITIVES 深度分析")
@@ -35,7 +32,6 @@ def analyze_false_positives_sources():
     
     print(f"总计False Positives: {len(false_positives)}个")
     
-    # 按来源分类
     fp_by_source = defaultdict(list)
     for contract in false_positives:
         source = contract['source_type']
@@ -45,7 +41,6 @@ def analyze_false_positives_sources():
     for source, contracts_list in fp_by_source.items():
         print(f"  {source}: {len(contracts_list)}个 ({len(contracts_list)/len(false_positives)*100:.1f}%)")
     
-    # 分析合约名称模式
     print(f"\n合约名称模式分析:")
     contract_names = []
     for contract in false_positives:
@@ -74,7 +69,6 @@ def analyze_false_positives_sources():
     for pattern, count in name_patterns.items():
         print(f"    {pattern}: {count}个")
     
-    # 详细分析前10个False Positives
     detector = ImprovedFactoryDetector()
     
     print(f"\n详细案例分析 (前10个):")
@@ -92,7 +86,6 @@ def analyze_false_positives_sources():
         print(f"   CREATE2操作: {contract.get('create2_positions', 0)}个")
         print(f"   执行时间: {contract.get('execution_time', 0)}ms")
         
-        # 分析为什么被误判
         if 'Factory' in contract_name:
             print(f"   ❌ 误判原因: 合约名包含'Factory'但源码分析确认非工厂合约")
             print(f"   ❌ 问题: 字节码级检测与源码分析不一致")
@@ -106,7 +99,6 @@ def analyze_false_positives_sources():
 
 
 def analyze_false_negatives_sources():
-    """分析False Negatives的具体来源"""
     
     print("\n" + "=" * 80)
     print("原始DETECTOR FALSE NEGATIVES 深度分析")
@@ -123,7 +115,6 @@ def analyze_false_negatives_sources():
     
     print(f"总计False Negatives: {len(false_negatives)}个")
     
-    # 按来源分类
     fn_by_source = defaultdict(list)
     for contract in false_negatives:
         source = contract['source_type']
@@ -133,7 +124,6 @@ def analyze_false_negatives_sources():
     for source, contracts_list in fn_by_source.items():
         print(f"  {source}: {len(contracts_list)}个 ({len(contracts_list)/len(false_negatives)*100:.1f}%)")
     
-    # 分析CREATE操作执行次数
     print(f"\nCREATE操作执行统计:")
     create_counts = []
     for contract in false_negatives:
@@ -159,7 +149,6 @@ def analyze_false_negatives_sources():
         print(f"  平均执行次数: {sum(create_counts)/len(create_counts):,.0f}")
         print(f"  中位数执行次数: {create_counts[len(create_counts)//2]:,}")
         
-        # 按执行次数分组
         ranges = [
             (0, 100, "小规模 (≤100次)"),
             (101, 1000, "中规模 (101-1000次)"),
@@ -172,7 +161,6 @@ def analyze_false_negatives_sources():
             if count > 0:
                 print(f"  {label}: {count}个合约")
     
-    # 分析合约地址模式
     print(f"\n合约地址模式分析:")
     address_patterns = defaultdict(int)
     
@@ -198,7 +186,6 @@ def analyze_false_negatives_sources():
     for pattern, count in address_patterns.items():
         print(f"  {pattern}: {count}个")
     
-    # 详细分析字节码特征
     detector = ImprovedFactoryDetector()
     
     print(f"\n字节码分析 (前10个):")
@@ -263,7 +250,6 @@ def analyze_false_negatives_sources():
 
 
 def analyze_detection_patterns():
-    """分析检测模式和边界情况"""
     
     print("\n" + "=" * 80)
     print("检测模式和边界情况分析")
@@ -275,7 +261,6 @@ def analyze_detection_patterns():
     
     contracts = data['contracts']
     
-    # 统计各种检测结果
     true_positives = [c for c in contracts if c['is_factory_ground_truth'] and c['is_factory_detected']]
     false_positives = [c for c in contracts if not c['is_factory_ground_truth'] and c['is_factory_detected']]
     true_negatives = [c for c in contracts if not c['is_factory_ground_truth'] and not c['is_factory_detected']]
@@ -287,7 +272,6 @@ def analyze_detection_patterns():
     print(f"  True Negatives:  {len(true_negatives):4d} (正确检测非工厂)")
     print(f"  False Negatives: {len(false_negatives):4d} (漏报工厂为非工厂)")
     
-    # 分析检测类型分布
     print(f"\n检测类型分布:")
     factory_types = defaultdict(int)
     for contract in contracts:
@@ -298,7 +282,6 @@ def analyze_detection_patterns():
     for factory_type, count in factory_types.items():
         print(f"  {factory_type}: {count}个")
     
-    # 分析执行时间模式
     print(f"\n执行时间分析:")
     fp_times = [c.get('execution_time', 0) for c in false_positives if c.get('execution_time')]
     fn_times = [c.get('execution_time', 0) for c in false_negatives if c.get('execution_time')]
@@ -317,7 +300,6 @@ def analyze_detection_patterns():
             avg_time = sum(times) / len(times)
             print(f"  {category}: 平均 {avg_time:.1f}ms (范围: {min(times)}-{max(times)}ms)")
     
-    # 关键发现总结
     print(f"\n关键发现:")
     print(f"1. False Positives主要来源:")
     print(f"   - {len([c for c in false_positives if c['source_type'] == 'etherscan'])}个来自Etherscan验证合约")
@@ -335,16 +317,12 @@ def analyze_detection_patterns():
 
 
 def main():
-    """主分析函数"""
     print("开始深度分析原始Factory Detector的误报和漏报来源...")
     
-    # 分析False Positives
     analyze_false_positives_sources()
     
-    # 分析False Negatives
     analyze_false_negatives_sources()
     
-    # 分析检测模式
     analyze_detection_patterns()
     
     print("\n" + "=" * 80)

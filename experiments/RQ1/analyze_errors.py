@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """
-详细分析Factory Detector的误报和漏报原因
-
 This script analyzes the false positives and false negatives to understand
 why the detector failed in these cases.
 """
@@ -17,7 +15,6 @@ from factory_detector import ImprovedFactoryDetector
 
 
 def analyze_false_positives(contracts: List[Dict]) -> None:
-    """分析False Positives (误报) - 非工厂合约被误检为工厂合约"""
     
     print("=" * 70)
     print("FALSE POSITIVES 分析 (误报 - 非工厂合约被误检为工厂合约)")
@@ -31,7 +28,6 @@ def analyze_false_positives(contracts: List[Dict]) -> None:
         print("没有False Positives!")
         return
     
-    # 按factory_type分组分析
     fp_by_type = {}
     for contract in false_positives:
         factory_type = contract.get('factory_type', 'UNKNOWN')
@@ -43,7 +39,6 @@ def analyze_false_positives(contracts: List[Dict]) -> None:
     for factory_type, contracts_list in fp_by_type.items():
         print(f"  {factory_type}: {len(contracts_list)}个")
     
-    # 详细分析前10个False Positives
     detector = ImprovedFactoryDetector()
     
     print(f"\n详细分析 (前10个):")
@@ -57,14 +52,12 @@ def analyze_false_positives(contracts: List[Dict]) -> None:
         if contract.get('verification_notes'):
             print(f"   验证备注: {contract['verification_notes'][:100]}...")
         
-        # 获取详细的CFG分析
         try:
             cfg_info = detector.get_basic_block_info(contract['bytecode'])
             print(f"   CFG分析: {cfg_info['total_instructions']}条指令, "
                   f"{cfg_info['total_blocks']}个基本块, "
                   f"{cfg_info['reachable_blocks']}个可达块")
             
-            # 检查是否有可达的CREATE/CREATE2块
             factory_blocks = [b for b in cfg_info['blocks'] 
                             if b['is_reachable'] and (b['contains_create'] or b['contains_create2'])]
             if factory_blocks:
@@ -78,7 +71,6 @@ def analyze_false_positives(contracts: List[Dict]) -> None:
 
 
 def analyze_false_negatives(contracts: List[Dict]) -> None:
-    """分析False Negatives (漏报) - 工厂合约未被检测出"""
     
     print("\n" + "=" * 70)
     print("FALSE NEGATIVES 分析 (漏报 - 工厂合约未被检测出)")
@@ -92,7 +84,6 @@ def analyze_false_negatives(contracts: List[Dict]) -> None:
         print("没有False Negatives!")
         return
     
-    # 按source_type分组分析
     fn_by_source = {}
     for contract in false_negatives:
         source_type = contract.get('source_type', 'UNKNOWN')
@@ -104,7 +95,6 @@ def analyze_false_negatives(contracts: List[Dict]) -> None:
     for source_type, contracts_list in fn_by_source.items():
         print(f"  {source_type}: {len(contracts_list)}个")
     
-    # 详细分析前10个False Negatives
     detector = ImprovedFactoryDetector()
     
     print(f"\n详细分析 (前10个):")
@@ -116,14 +106,12 @@ def analyze_false_negatives(contracts: List[Dict]) -> None:
         if contract.get('verification_notes'):
             print(f"   验证备注: {contract['verification_notes'][:100]}...")
         
-        # 获取详细的CFG分析
         try:
             cfg_info = detector.get_basic_block_info(contract['bytecode'])
             print(f"   CFG分析: {cfg_info['total_instructions']}条指令, "
                   f"{cfg_info['total_blocks']}个基本块, "
                   f"{cfg_info['reachable_blocks']}个可达块")
             
-            # 检查字节码中的CREATE/CREATE2
             bytecode = contract['bytecode']
             if bytecode.startswith('0x'):
                 bytecode = bytecode[2:]
@@ -132,7 +120,6 @@ def analyze_false_negatives(contracts: List[Dict]) -> None:
             create2_count = bytecode.lower().count('f5')  # CREATE2
             print(f"   字节码中: {create_count}个CREATE字节, {create2_count}个CREATE2字节")
             
-            # 检查是否有任何块包含CREATE/CREATE2
             all_factory_blocks = [b for b in cfg_info['blocks'] 
                                 if b['contains_create'] or b['contains_create2']]
             reachable_factory_blocks = [b for b in cfg_info['blocks'] 
@@ -151,7 +138,6 @@ def analyze_false_negatives(contracts: List[Dict]) -> None:
 
 
 def analyze_error_patterns(contracts: List[Dict]) -> None:
-    """分析错误模式和潜在改进点"""
     
     print("\n" + "=" * 70)
     print("错误模式分析和改进建议")
@@ -164,7 +150,6 @@ def analyze_error_patterns(contracts: List[Dict]) -> None:
     print(f"  数量: {len(false_positives)}")
     
     if false_positives:
-        # 分析误报的特征
         fp_etherscan = [c for c in false_positives if c['source_type'] == 'etherscan']
         print(f"  来自Etherscan验证合约: {len(fp_etherscan)}个")
         print(f"  这些合约通过源码分析确认不包含create/create2/new关键字")
@@ -178,7 +163,6 @@ def analyze_error_patterns(contracts: List[Dict]) -> None:
     print(f"  数量: {len(false_negatives)}")
     
     if false_negatives:
-        # 分析漏报的特征
         fn_traces = [c for c in false_negatives if c['source_type'] == 'traces']
         print(f"  来自交易追踪: {len(fn_traces)}个")
         print(f"  这些合约在实际执行中创建了其他合约")
@@ -202,23 +186,18 @@ def analyze_error_patterns(contracts: List[Dict]) -> None:
 
 
 def main():
-    """主分析函数"""
     print("开始分析Factory Detector的误报和漏报...")
     
-    # 加载评估结果
     with open('factory_detector_evaluation_results.json', 'r') as f:
         data = json.load(f)
     
     contracts = data['contracts']
     print(f"加载了{len(contracts):,}个合约的评估结果")
     
-    # 分析False Positives
     analyze_false_positives(contracts)
     
-    # 分析False Negatives  
     analyze_false_negatives(contracts)
     
-    # 分析错误模式
     analyze_error_patterns(contracts)
     
     print("\n" + "=" * 70)

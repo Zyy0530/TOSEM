@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""
-全量扫描区块链合约的工厂合约检测系统（Google BigQuery版）
-支持并发处理5个EVM区块链网络的合约字节码分析
-数据源：Google BigQuery 公开数据集
-存储：Google BigQuery 自定义表
-仅处理2025年6月1日之前部署的合约
-"""
+ 
 
 import os
 import sys
@@ -31,95 +25,77 @@ except ImportError:
 from factory_detector import ImprovedFactoryDetector
 
 # =============================================================================
-# 配置区域 - 请填写您的Google BigQuery配置
 # =============================================================================
 
-# Google BigQuery配置 - 用户需要填写
 BIGQUERY_CONFIG = {
-    # 项目ID（必填）
-    "project_id": "",  # 您的Google Cloud项目ID
-    
-    # 认证方式选择其一：
-    # 方式1：服务账户JSON密钥文件路径（推荐用于生产环境）
-    "service_account_key_file": "",  # 服务账户JSON密钥文件的完整路径
-    
-    # 方式2：使用环境变量GOOGLE_APPLICATION_CREDENTIALS（推荐用于开发环境）
-    # 设置环境变量：export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-key.json"
-    
-    # 数据集和表配置
-    "dataset_id": "tosem_factory_analysis",  # 用于存储分析结果的数据集名称
-    "results_table": "factory_analysis_results",  # 存储分析结果的表名
-    "progress_table": "analysis_progress",  # 存储进度信息的表名
-    
-    # 查询配置
-    "location": "US",  # BigQuery数据集位置，建议使用US（BigQuery公开数据集位于US）
-    "batch_size_months": 1,  # 每次查询的月份数量（1-12）
-    "max_parallel_queries": 3,  # 最大并行查询数量（避免配额限制）
-    
-    # 性能配置
-    "use_cache": True,  # 是否使用BigQuery查询缓存
-    "dry_run": False,  # 是否启用干运行模式（仅验证查询不执行）
+    "project_id": "",
+    "service_account_key_file": "",
+    "dataset_id": "tosem_factory_analysis",
+    "results_table": "factory_analysis_results",
+    "progress_table": "analysis_progress",
+    "location": "US",
+    "batch_size_months": 1,
+    "max_parallel_queries": 3,
+    "use_cache": True,
+    "dry_run": False,
 }
 
-# 区块链配置 - 基于Google BigQuery公开数据集
 BLOCKCHAIN_CONFIGS = [
     {
         "chain_name": "ethereum",
         "dataset_name": "bigquery-public-data.crypto_ethereum",
-        "query_type": "direct",  # 直接从contracts表查询
+        "query_type": "direct",
         "contracts_table": "contracts",
-        "genesis_date": "2015-07-30",  # 以太坊主网启动日期
+        "genesis_date": "2015-07-30",
         "status": "active"
     },
     {
         "chain_name": "polygon",
         "dataset_name": "bigquery-public-data.crypto_polygon",
-        "query_type": "direct",  # 直接从contracts表查询
+        "query_type": "direct",
         "contracts_table": "contracts",
-        "genesis_date": "2020-05-30",  # Polygon主网启动日期
+        "genesis_date": "2020-05-30",
         "status": "active"
     },
     {
         "chain_name": "arbitrum",
         "dataset_name": "bigquery-public-data.goog_blockchain_arbitrum_mainnet_us",
-        "query_type": "join",  # 需要JOIN transactions和receipts表
+        "query_type": "join",
         "transactions_table": "transactions",
         "receipts_table": "receipts",
-        "genesis_date": "2021-08-31",  # Arbitrum One主网启动日期
+        "genesis_date": "2021-08-31",
         "status": "active"
     },
     {
         "chain_name": "optimism", 
         "dataset_name": "bigquery-public-data.goog_blockchain_optimism_mainnet_us",
-        "query_type": "join",  # 需要JOIN transactions和receipts表
+        "query_type": "join",
         "transactions_table": "transactions", 
         "receipts_table": "receipts",
-        "genesis_date": "2021-12-16",  # Optimism主网启动日期
+        "genesis_date": "2021-12-16",
         "status": "active"
     },
     {
         "chain_name": "avalanche",
         "dataset_name": "bigquery-public-data.goog_blockchain_avalanche_mainnet_us", 
-        "query_type": "join",  # 需要JOIN transactions和receipts表
+        "query_type": "join",
         "transactions_table": "transactions",
         "receipts_table": "receipts", 
-        "genesis_date": "2020-09-23",  # Avalanche C-Chain启动日期
+        "genesis_date": "2020-09-23",
         "status": "active"
     }
 ]
 
-# 分析配置
 ANALYSIS_CONFIG = {
-    "cutoff_date": "2025-06-01",  # 分析截止日期
-    "max_workers": 5,  # 最大工作线程数
-    "batch_save_size": 1000,  # 批量保存大小
-    "retry_attempts": 3,  # 查询失败重试次数
-    "retry_delay": 60,  # 重试延迟（秒）
+    "cutoff_date": "2025-06-01",
+    "max_workers": 5,
+    "batch_save_size": 1000,
+    "retry_attempts": 3,
+    "retry_delay": 60,
 }
 
 # =============================================================================
 
-# 配置日志
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -133,7 +109,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ContractData:
-    """合约数据结构"""
     chain: str
     address: str
     bytecode: str
@@ -144,7 +119,6 @@ class ContractData:
 
 @dataclass 
 class AnalysisResult:
-    """分析结果数据结构"""
     chain: str
     address: str
     is_factory: bool
@@ -152,20 +126,13 @@ class AnalysisResult:
     is_create2: bool  
     is_both: bool
     analysis_success: bool
-    analysis_time: int  # 毫秒
+    analysis_time: int
     processed_at: datetime
 
 
 class BigQueryManager:
-    """Google BigQuery管理器"""
     
     def __init__(self, config: Dict):
-        """
-        初始化BigQuery客户端
-        
-        Args:
-            config: BigQuery配置字典
-        """
         self.config = config
         self.project_id = config['project_id']
         self.dataset_id = config['dataset_id'] 
@@ -174,16 +141,12 @@ class BigQueryManager:
         if not self.project_id:
             raise ValueError("项目ID不能为空，请在BIGQUERY_CONFIG中设置project_id")
         
-        # 初始化BigQuery客户端
         self.client = self._create_client()
         
-        # 初始化数据集和表
         self._setup_dataset()
         
     def _create_client(self) -> bigquery.Client:
-        """创建BigQuery客户端"""
         try:
-            # 方式1：使用服务账户密钥文件
             key_file = self.config.get('service_account_key_file')
             if key_file and os.path.exists(key_file):
                 credentials = service_account.Credentials.from_service_account_file(key_file)
@@ -194,17 +157,14 @@ class BigQueryManager:
                 )
                 logger.info(f"Using service account key file: {key_file}")
                 
-            # 方式2：使用环境变量GOOGLE_APPLICATION_CREDENTIALS
             elif os.getenv('GOOGLE_APPLICATION_CREDENTIALS'):
                 client = bigquery.Client(project=self.project_id, location=self.location)
                 logger.info("Using GOOGLE_APPLICATION_CREDENTIALS environment variable")
                 
             else:
-                # 方式3：使用默认凭据（如果运行在Google Cloud上）
                 client = bigquery.Client(project=self.project_id, location=self.location)
                 logger.info("Using default credentials")
             
-            # 测试连接
             client.get_dataset(client.dataset('bigquery-public-data'))
             logger.info(f"BigQuery client initialized successfully for project: {self.project_id}")
             return client
@@ -214,9 +174,7 @@ class BigQueryManager:
             raise
     
     def _setup_dataset(self):
-        """设置数据集和表"""
         try:
-            # 创建数据集（如果不存在）
             dataset_ref = self.client.dataset(self.dataset_id)
             try:
                 self.client.get_dataset(dataset_ref)
@@ -227,10 +185,8 @@ class BigQueryManager:
                 dataset = self.client.create_dataset(dataset)
                 logger.info(f"Created dataset {self.dataset_id}")
             
-            # 创建结果表
             self._create_results_table()
             
-            # 创建进度表
             self._create_progress_table()
             
         except Exception as e:
@@ -238,7 +194,6 @@ class BigQueryManager:
             raise
     
     def _create_results_table(self):
-        """创建分析结果表"""
         table_id = f"{self.project_id}.{self.dataset_id}.{self.config['results_table']}"
         
         schema = [
@@ -268,7 +223,6 @@ class BigQueryManager:
             raise
     
     def _create_progress_table(self):
-        """创建进度表"""
         table_id = f"{self.project_id}.{self.dataset_id}.{self.config['progress_table']}"
         
         schema = [
@@ -293,7 +247,6 @@ class BigQueryManager:
             raise
     
     def get_processed_periods(self, chain: str) -> List[Tuple[datetime, datetime]]:
-        """获取已处理的时间段"""
         query = f"""
         SELECT start_date, end_date
         FROM `{self.project_id}.{self.dataset_id}.{self.config['progress_table']}`
@@ -324,7 +277,6 @@ class BigQueryManager:
             return []
     
     def mark_period_in_progress(self, chain: str, start_date: datetime, end_date: datetime):
-        """标记时间段为处理中"""
         query = f"""
         INSERT INTO `{self.project_id}.{self.dataset_id}.{self.config['progress_table']}`
         (chain, start_date, end_date, status, updated_at)
@@ -348,7 +300,6 @@ class BigQueryManager:
     
     def update_period_completed(self, chain: str, start_date: datetime, end_date: datetime,
                                contracts_processed: int, factories_found: int, processing_time_ms: int):
-        """更新时间段为已完成"""
         query = f"""
         UPDATE `{self.project_id}.{self.dataset_id}.{self.config['progress_table']}`
         SET 
@@ -381,13 +332,11 @@ class BigQueryManager:
             logger.error(f"Failed to mark period completed for {chain}: {e}")
     
     def save_analysis_results(self, results: List[AnalysisResult]) -> int:
-        """批量保存分析结果到BigQuery"""
         if not results:
             return 0
         
         table_id = f"{self.project_id}.{self.dataset_id}.{self.config['results_table']}"
         
-        # 转换数据
         rows_to_insert = []
         for result in results:
             rows_to_insert.append({
@@ -403,7 +352,6 @@ class BigQueryManager:
             })
         
         try:
-            # 执行插入操作
             errors = self.client.insert_rows_json(
                 self.client.get_table(table_id), 
                 rows_to_insert,
@@ -423,15 +371,12 @@ class BigQueryManager:
 
 
 class BigQueryContractFetcher:
-    """Google BigQuery合约数据获取器"""
     
     def __init__(self, bigquery_manager: BigQueryManager):
-        """初始化合约获取器"""
         self.bq = bigquery_manager
         self.client = bigquery_manager.client
         
     def _create_ethereum_query(self, start_date: datetime, end_date: datetime) -> str:
-        """创建以太坊合约查询SQL"""
         return f"""
         SELECT 
             address,
@@ -448,7 +393,6 @@ class BigQueryContractFetcher:
         """
     
     def _create_polygon_query(self, start_date: datetime, end_date: datetime) -> str:
-        """创建Polygon合约查询SQL"""  
         return f"""
         SELECT 
             address,
@@ -465,7 +409,6 @@ class BigQueryContractFetcher:
         """
         
     def _create_join_query(self, dataset: str, start_date: datetime, end_date: datetime) -> str:
-        """创建需要JOIN的区块链查询SQL（Arbitrum, Optimism, Avalanche）"""
         return f"""
         SELECT 
             r.contract_address as address,
@@ -486,21 +429,9 @@ class BigQueryContractFetcher:
         """
     
     def fetch_contracts(self, chain_config: Dict, start_date: datetime, end_date: datetime) -> List[ContractData]:
-        """
-        获取指定时间段内的合约数据
-        
-        Args:
-            chain_config: 区块链配置
-            start_date: 开始时间
-            end_date: 结束时间
-            
-        Returns:
-            合约数据列表
-        """
         chain_name = chain_config['chain_name']
         query_type = chain_config['query_type']
         
-        # 根据不同的查询类型生成SQL
         if chain_name == 'ethereum':
             query = self._create_ethereum_query(start_date, end_date)
         elif chain_name == 'polygon':
@@ -510,13 +441,11 @@ class BigQueryContractFetcher:
         else:
             raise ValueError(f"Unsupported query type for {chain_name}: {query_type}")
         
-        # 设置查询参数
         job_config = bigquery.QueryJobConfig(
             use_query_cache=self.bq.config['use_cache'],
             dry_run=self.bq.config['dry_run']
         )
         
-        # 所有查询都需要时间参数（现在Polygon也需要了）
         job_config.query_parameters = [
             bigquery.ScalarQueryParameter("start_date", "TIMESTAMP", start_date),
             bigquery.ScalarQueryParameter("end_date", "TIMESTAMP", end_date)
@@ -529,15 +458,12 @@ class BigQueryContractFetcher:
                 logger.info(f"DRY RUN - Query for {chain_name}: {query}")
                 return []
             
-            # 执行查询
             query_job = self.client.query(query, job_config=job_config)
             results = query_job.result()
             
-            # 转换结果
             contracts = []
             for row in results:
                 try:
-                    # 处理创建时间
                     created_at = row.get('created_at')
                     if created_at is None:
                         created_at = datetime.now(timezone.utc)
@@ -567,20 +493,15 @@ class BigQueryContractFetcher:
 
 
 class FactoryAnalysisSystem:
-    """基于Google BigQuery的工厂合约分析系统"""
     
     def __init__(self):
-        """初始化分析系统"""
-        # 验证配置
         if not BIGQUERY_CONFIG['project_id']:
             raise ValueError("请在BIGQUERY_CONFIG中设置project_id")
         
-        # 初始化组件
         self.bq = BigQueryManager(BIGQUERY_CONFIG)
         self.fetcher = BigQueryContractFetcher(self.bq)
         self.detector = ImprovedFactoryDetector()
         
-        # 统计信息
         self.stats = {
             'total_processed': 0,
             'total_factories': 0,
@@ -591,13 +512,11 @@ class FactoryAnalysisSystem:
             'start_time': None
         }
         
-        # 线程安全锁
         self._lock = threading.Lock()
     
     def _update_stats(self, processed: int = 0, factories: int = 0, 
                      create_only: int = 0, create2_only: int = 0, 
                      both: int = 0, errors: int = 0):
-        """线程安全地更新统计信息"""
         with self._lock:
             self.stats['total_processed'] += processed
             self.stats['total_factories'] += factories
@@ -607,24 +526,13 @@ class FactoryAnalysisSystem:
             self.stats['errors'] += errors
     
     def analyze_contract(self, contract: ContractData) -> AnalysisResult:
-        """
-        分析单个合约
-        
-        Args:
-            contract: 合约数据
-            
-        Returns:
-            分析结果
-        """
         start_time = time.perf_counter()
         
         try:
-            # 使用检测器分析
             detection_result = self.detector.detect_factory_contract(contract.bytecode)
             
             analysis_time = int((time.perf_counter() - start_time) * 1000)  # 毫秒
             
-            # 解析结果
             is_factory = detection_result.is_factory_contract
             factory_type = detection_result.factory_type
             
@@ -659,37 +567,24 @@ class FactoryAnalysisSystem:
             )
     
     def generate_time_periods(self, chain_config: Dict) -> List[Tuple[datetime, datetime]]:
-        """
-        生成需要处理的时间段
-        
-        Args:
-            chain_config: 区块链配置
-            
-        Returns:
-            时间段列表 (start_date, end_date)
-        """
         chain_name = chain_config['chain_name']
         genesis_date = datetime.fromisoformat(chain_config['genesis_date']).replace(tzinfo=timezone.utc)
         cutoff_date = datetime.fromisoformat(ANALYSIS_CONFIG['cutoff_date']).replace(tzinfo=timezone.utc)
         
-        # 获取已处理的时间段
         processed_periods = self.bq.get_processed_periods(chain_name)
         processed_set = set(processed_periods)
         
-        # 生成所有需要处理的月份
         all_periods = []
         current_date = cutoff_date
         batch_months = BIGQUERY_CONFIG['batch_size_months']
         
         while current_date > genesis_date:
-            # 计算批次开始时间
             start_date = current_date - timedelta(days=30 * batch_months)
             if start_date < genesis_date:
                 start_date = genesis_date
             
             period = (start_date, current_date)
             
-            # 检查是否已处理
             if period not in processed_set:
                 all_periods.append(period)
             
@@ -716,20 +611,16 @@ class FactoryAnalysisSystem:
         logger.info(f"Processing {chain_name}: {start_date.date()} to {end_date.date()}")
         
         try:
-            # 标记为处理中
             self.bq.mark_period_in_progress(chain_name, start_date, end_date)
             
-            # 获取合约数据
             contracts = self.fetcher.fetch_contracts(chain_config, start_date, end_date)
             
             if not contracts:
                 logger.info(f"No contracts found for {chain_name} in period {start_date.date()} to {end_date.date()}")
-                # 标记为完成（即使没有合约）
                 processing_time = int((time.perf_counter() - period_start_time) * 1000)
                 self.bq.update_period_completed(chain_name, start_date, end_date, 0, 0, processing_time)
                 return {'processed': 0, 'factories': 0, 'errors': 0}
             
-            # 分析合约
             results = []
             factories_found = 0
             errors = 0
@@ -745,13 +636,11 @@ class FactoryAnalysisSystem:
                     if not result.analysis_success:
                         errors += 1
                     
-                    # 批量保存
                     if len(results) >= ANALYSIS_CONFIG['batch_save_size']:
                         saved = self.bq.save_analysis_results(results)
                         logger.info(f"{chain_name}: Saved batch of {saved} results")
                         results = []
                     
-                    # 进度报告
                     if (i + 1) % 100 == 0:
                         logger.info(f"{chain_name}: Processed {i + 1}/{len(contracts)} contracts")
                         
@@ -759,19 +648,16 @@ class FactoryAnalysisSystem:
                     logger.error(f"Error processing contract {contract.address}: {e}")
                     errors += 1
             
-            # 保存剩余结果
             if results:
                 saved = self.bq.save_analysis_results(results)
                 logger.info(f"{chain_name}: Saved final batch of {saved} results")
             
-            # 更新统计
             self._update_stats(
                 processed=len(contracts),
                 factories=factories_found,
                 errors=errors
             )
             
-            # 标记时间段为完成
             processing_time = int((time.perf_counter() - period_start_time) * 1000)
             self.bq.update_period_completed(chain_name, start_date, end_date, 
                                           len(contracts), factories_found, processing_time)
@@ -802,14 +688,12 @@ class FactoryAnalysisSystem:
         logger.info(f"🚀 Starting processing for {chain_name}")
         
         try:
-            # 生成时间段
             time_periods = self.generate_time_periods(chain_config)
             
             if not time_periods:
                 logger.info(f"No periods to process for {chain_name}")
                 return {'processed': 0, 'factories': 0, 'errors': 0}
             
-            # 串行处理各个时间段（避免BigQuery并发限制）
             total_stats = {'processed': 0, 'factories': 0, 'errors': 0}
             
             for start_date, end_date in time_periods:
@@ -819,7 +703,6 @@ class FactoryAnalysisSystem:
                 total_stats['factories'] += period_stats['factories'] 
                 total_stats['errors'] += period_stats['errors']
                 
-                # 短暂休息避免配额限制
                 time.sleep(1)
             
             logger.info(f"🎯 Completed all periods for {chain_name}: "
@@ -832,13 +715,11 @@ class FactoryAnalysisSystem:
             return {'processed': 0, 'factories': 0, 'errors': 1}
     
     def run_concurrent_analysis(self):
-        """运行并发分析"""
         logger.info("🌟 Starting BigQuery Factory Contract Analysis System")
         logger.info(f"Configuration: {len(BLOCKCHAIN_CONFIGS)} chains, cutoff date: {ANALYSIS_CONFIG['cutoff_date']}")
         
         self.stats['start_time'] = time.time()
         
-        # 验证配置
         active_chains = [cfg for cfg in BLOCKCHAIN_CONFIGS if cfg.get('status') == 'active']
         logger.info(f"Active blockchain configurations: {len(active_chains)}")
         
@@ -846,18 +727,15 @@ class FactoryAnalysisSystem:
             chain_name = chain_config['chain_name']
             logger.info(f"  → {chain_name}: {chain_config['dataset_name']} ({chain_config['query_type']})")
         
-        # 并发处理区块链
         max_workers = min(len(active_chains), ANALYSIS_CONFIG['max_workers'])
         logger.info(f"Starting concurrent processing with {max_workers} workers")
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # 提交任务
             future_to_chain = {
                 executor.submit(self.process_chain, chain_config): chain_config['chain_name']
                 for chain_config in active_chains
             }
             
-            # 收集结果
             for future in as_completed(future_to_chain):
                 chain_name = future_to_chain[future]
                 try:
@@ -866,11 +744,9 @@ class FactoryAnalysisSystem:
                 except Exception as e:
                     logger.error(f"❌ {chain_name} failed: {e}")
         
-        # 打印最终统计
         self.print_final_stats()
     
     def print_final_stats(self):
-        """打印最终统计"""
         total_time = time.time() - self.stats['start_time']
         
         logger.info("=" * 80)
@@ -894,9 +770,7 @@ class FactoryAnalysisSystem:
 
 
 def main():
-    """主函数"""
     try:
-        # 验证配置
         if not BIGQUERY_CONFIG['project_id']:
             logger.error("❌ 请在代码顶部的BIGQUERY_CONFIG中设置project_id")
             logger.error("💡 同时请确保已配置Google Cloud认证:")
@@ -910,7 +784,6 @@ def main():
         logger.info(f"📊 Dataset: {BIGQUERY_CONFIG['dataset_id']}")
         logger.info(f"🌍 Location: {BIGQUERY_CONFIG['location']}")
         
-        # 创建并运行分析系统
         analyzer = FactoryAnalysisSystem()
         analyzer.run_concurrent_analysis()
         

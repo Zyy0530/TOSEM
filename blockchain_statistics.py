@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""
-区块链合约统计脚本
-提取五条区块链中的合约总数和unique bytecode的合约总数
-支持两种查询类型：
-1. 直接查询 (ethereum, polygon) - 使用contracts表
-2. JOIN查询 (arbitrum, optimism, avalanche) - 使用transactions和receipts表
-"""
+ 
 
 import json
 import os
@@ -17,11 +11,9 @@ from datetime import datetime
 
 class BlockchainStatistics:
     def __init__(self, config_file: str = "blockchain_config.json"):
-        """初始化BigQuery客户端和配置"""
         with open(config_file, 'r', encoding='utf-8') as f:
             self.config = json.load(f)
         
-        # 从环境变量获取项目ID
         from dotenv import load_dotenv
         load_dotenv()
         
@@ -29,7 +21,6 @@ class BlockchainStatistics:
         if not self.project_id:
             raise ValueError("请在.env文件中设置GOOGLE_CLOUD_PROJECT_ID环境变量")
         
-        # 设置认证
         credentials_path = "ziyue-wang-26825217908a.json"
         if not os.path.exists(credentials_path):
             raise FileNotFoundError(f"找不到服务账户密钥文件: {credentials_path}")
@@ -40,10 +31,6 @@ class BlockchainStatistics:
         print(f"✅ BigQuery客户端初始化成功 - 项目: {self.project_id}")
     
     def get_direct_table_stats(self, chain_config: Dict) -> Tuple[int, int]:
-        """
-        查询直接contracts表的统计信息 (ethereum, polygon)
-        返回: (总合约数, unique bytecode数)
-        """
         dataset_name = chain_config['dataset_name']
         table_name = chain_config['contracts_table']
         chain_name = chain_config['chain_name']
@@ -82,17 +69,11 @@ class BlockchainStatistics:
             return 0, 0
     
     def get_join_table_stats(self, chain_config: Dict) -> Tuple[int, int]:
-        """
-        查询需要JOIN的表统计信息 (arbitrum, optimism, avalanche)
-        修正后的查询：包含所有合约创建类型（直接部署 + 工厂创建）
-        返回: (总合约数, unique bytecode数)
-        """
         dataset_name = chain_config['dataset_name']
         transactions_table = chain_config['transactions_table']
         receipts_table = chain_config['receipts_table']
         chain_name = chain_config['chain_name']
         
-        # 修正后的查询：更准确地捕获所有合约创建
         query = f"""
         WITH contract_creations AS (
             SELECT DISTINCT
@@ -136,7 +117,6 @@ class BlockchainStatistics:
             return 0, 0
     
     def collect_all_statistics(self) -> Dict[str, Dict[str, int]]:
-        """收集所有区块链的统计信息"""
         all_stats = {}
         
         print("🚀 开始收集所有区块链统计信息...")
@@ -175,7 +155,6 @@ class BlockchainStatistics:
         return all_stats
     
     def print_summary(self, stats: Dict[str, Dict[str, int]]):
-        """打印统计摘要"""
         print("\n" + "=" * 80)
         print("📊 区块链合约统计摘要")
         print("=" * 80)
@@ -183,11 +162,9 @@ class BlockchainStatistics:
         total_all_contracts = 0
         total_all_unique = 0
         
-        # 打印表头
         print(f"{'区块链':<12} {'总合约数':<15} {'Unique Bytecode':<15} {'查询类型':<10} {'耗时(秒)':<8}")
         print("-" * 70)
         
-        # 打印每条链的统计
         for chain_name, data in stats.items():
             total_contracts = data['total_contracts']
             unique_bytecodes = data['unique_bytecodes']
@@ -202,13 +179,11 @@ class BlockchainStatistics:
         print("-" * 70)
         print(f"{'总计':<12} {total_all_contracts:<15,} {total_all_unique:<15,}")
         
-        # 打印详细分析
         print(f"\n🔍 详细分析:")
         print(f"   • 总合约数量: {total_all_contracts:,}")
         print(f"   • 总Unique Bytecode数: {total_all_unique:,}")
         print(f"   • 平均重复率: {(1 - total_all_unique/total_all_contracts)*100:.2f}%")
         
-        # 按查询类型分组
         direct_chains = [name for name, data in stats.items() if data['query_type'] == 'direct']
         join_chains = [name for name, data in stats.items() if data['query_type'] == 'join']
         
@@ -217,7 +192,6 @@ class BlockchainStatistics:
         print(f"   • JOIN查询 (transactions+receipts): {', '.join(join_chains)}")
     
     def export_results(self, stats: Dict[str, Dict[str, int]], filename: str = None):
-        """导出结果到JSON文件"""
         if filename is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"blockchain_statistics_{timestamp}.json"
@@ -242,21 +216,16 @@ class BlockchainStatistics:
         print(f"\n✅ 统计结果已导出到: {filename}")
 
 def main():
-    """主函数"""
     print("🏗️ 区块链合约统计工具")
     print("=" * 50)
     
     try:
-        # 创建统计收集器
         stats_collector = BlockchainStatistics()
         
-        # 收集所有统计信息
         all_statistics = stats_collector.collect_all_statistics()
         
-        # 打印摘要
         stats_collector.print_summary(all_statistics)
         
-        # 导出结果
         stats_collector.export_results(all_statistics)
         
         print("\n🎉 统计收集完成!")
